@@ -1,4 +1,4 @@
-;;; jinx.el --- Enchanted just-in-time spell checker -*- lexical-binding: t -*-
+;;; jinx.el --- Enchanted Just-in-time Spell Checker -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2023 Free Software Foundation, Inc.
 
@@ -6,7 +6,7 @@
 ;; Maintainer: Daniel Mendler <mail@daniel-mendler.de>
 ;; Package-Requires: ((emacs "27.1") (compat "29.1.4.0"))
 ;; Created: 2023
-;; Version: 0.2
+;; Version: 0.4
 ;; Homepage: https://github.com/minad/jinx
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -92,7 +92,7 @@
 ;;;; Customization
 
 (defgroup jinx nil
-  "Enchanted just-in-time spell checker."
+  "Enchanted Just-in-time Spell Checker."
   :link '(info-link :tag "Info Manual" "(jinx)")
   :link '(url-link :tag "Homepage" "https://github.com/minad/jinx")
   :link '(emacs-library-link :tag "Library Source" "jinx.el")
@@ -104,8 +104,12 @@
   :type 'float)
 
 (defface jinx-misspelled
-  '((((supports :underline (:style wave)))
-     :underline (:style wave :color "red"))
+  '((((class color) (min-colors 88) (background dark)
+      (supports :underline (:style wave)))
+     :underline (:style wave :color "#d2b580"))
+    (((class color) (min-colors 88) (background light)
+      (supports :underline (:style wave)))
+     :underline (:style wave :color "#5f4400"))
     (t :underline t :inherit error))
   "Face used for misspelled words.")
 
@@ -117,7 +121,10 @@
   '((t :inherit font-lock-negation-char-face))
   "Face used for the accept action during correction.")
 
-(defcustom jinx-languages "en"
+(defcustom jinx-languages
+  (or (bound-and-true-p current-locale-environment)
+      (getenv "LANG")
+      "en_US")
   "List of languages."
   :type '(choice string (repeat string)))
 
@@ -364,8 +371,9 @@ Returns a pair of updated (START END) bounds."
 
 (defun jinx--get-overlays (start end)
   "Return misspelled words overlays between START and END."
-  (cl-loop for ov in (overlays-in start end)
-           if (eq (overlay-get ov 'category) 'jinx) collect ov))
+  (sort (cl-loop for ov in (overlays-in start end)
+                 if (eq (overlay-get ov 'category) 'jinx) collect ov)
+        (lambda (a b) (< (overlay-start a) (overlay-start b)))))
 
 (defun jinx--delete-overlays (start end)
   "Delete overlays between START and END."
@@ -435,17 +443,15 @@ Returns a pair of updated (START END) bounds."
       (error "Jinx: Native modules are not supported"))
     (let ((default-directory
            (file-name-directory (locate-library "jinx.el" t)))
-          (module (concat "jinx-mod" module-file-suffix)))
+          (module (file-name-with-extension "jinx-mod" module-file-suffix)))
       (unless (file-exists-p module)
         (let ((command
-               `("cc" "-O2" "-Wall" "-Wextra" "-fPIC" "-shared" "-Wl,--no-as-needed"
+               `("cc" "-I." "-O2" "-Wall" "-Wextra" "-fPIC" "-shared"
+                 "-o" ,module ,(file-name-with-extension module ".c")
                  ,@(split-string-and-unquote
                     (condition-case nil
                         (car (process-lines "pkg-config" "--cflags" "--libs" "enchant-2"))
-                      (error "-I/usr/include/enchant-2 -lenchant-2")))
-                 ,@(and source-directory
-                        (list (concat "-I" (file-name-concat source-directory "src/"))))
-                 "-o" ,module ,(file-name-with-extension module ".c"))))
+                      (error "-I/usr/include/enchant-2 -lenchant-2"))))))
           (with-current-buffer (get-buffer-create "*jinx module compilation*")
             (let ((inhibit-read-only t))
               (erase-buffer)
@@ -593,16 +599,16 @@ Return list of overlays, see `jinx--get-overlays'."
         (insert-before-markers selected)
         (delete-region start end)))))
 
-(defun jinx--nearest-overlay ()
-  "Find nearest misspelled word."
-  (let ((overlays (or (jinx--get-overlays (window-start) (window-end))
-                      (jinx--force-overlays (window-start) (window-end))))
-        nearest)
+(defun jinx--nearest-overlay (overlays)
+  "Find nearest visible overlay from OVERLAYS."
+  (let ((pt (point)) nearest)
     (dolist (ov overlays nearest)
       (when (and (not (invisible-p (overlay-start ov)))
                  (or (not nearest)
-                     (< (abs (- (overlay-start ov) (point)))
-                        (abs (- (overlay-start nearest) (point))))))
+                     (< (min (abs (- (overlay-start ov) pt))
+                             (abs (- (overlay-end ov) pt)))
+                        (min (abs (- (overlay-start nearest) pt))
+                             (abs (- (overlay-end nearest) pt))))))
         (setq nearest ov)))))
 
 ;;;; Public commands
@@ -618,23 +624,32 @@ If predicate argument ALL is given correct all misspellings."
         (save-excursion
           (cl-letf (((symbol-function #'jinx--timer-handler) #'ignore)) ;; Inhibit
             (if all
-                (let* ((overlays
-                        (or (sort (jinx--force-overlays (point-min) (point-max))
-                                  (lambda (a b) (< (overlay-start a) (overlay-start b))))
-                            (user-error "No misspellings in whole buffer")))
-                       (count (length overlays)))
+                (let* ((overlays (or (jinx--force-overlays (point-min) (point-max))
+                                     (user-error "No misspellings in whole buffer")))
+                       (nearest (jinx--nearest-overlay overlays))
+                       (count (length overlays))
+                       before after)
+                  (dolist (ov overlays)
+                    (if (or after (eq ov nearest))
+                        (push ov after)
+                      (push ov before)))
+                  (setq overlays (nreverse (nconc before after)))
                   (cl-loop for ov in overlays for idx from 1
                            if (overlay-buffer ov) do ;; Could be already deleted
                            (jinx--correct ov 'recenter
                                           (format " (%d of %d, RET to skip)"
                                                   idx count))))
-              (jinx--correct (or (jinx--nearest-overlay)
-                                 (user-error "No misspelling in visible text")))))))
+              (jinx--correct
+               (or
+                (jinx--nearest-overlay
+                 (or (jinx--get-overlays (window-start) (window-end))
+                     (jinx--force-overlays (window-start) (window-end))))
+                (user-error "No misspelling in visible text")))))))
     (jit-lock-refontify)))
 
 ;;;###autoload
 (define-minor-mode jinx-mode
-  "Enchanted just-in-time spell checker."
+  "Enchanted Just-in-time Spell Checker."
   :global nil :group 'jinx
   (cond
    (jinx-mode
