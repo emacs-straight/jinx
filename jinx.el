@@ -49,22 +49,23 @@
 ;; and programmable predicates.  Jinx comes preconfigured for the most
 ;; important major modes.
 ;;
-;; Jinx offers three auto-loaded entry points , the modes
-;; `global-jinx-mode', `jinx-mode' and the command `jinx-correct'.
-;; You can either enable `global-jinx-mode' or add `jinx-mode' to the
-;; hooks of the modes.
+;; Jinx offers the auto-loaded modes `global-jinx-mode' and
+;; `jinx-mode'.  You can either enable `global-jinx-mode' or add
+;; `jinx-mode' to the hooks of the modes.
 ;;
 ;; (add-hook 'emacs-startup-hook #'global-jinx-mode)
 ;;
 ;; (dolist (hook '(text-mode-hook prog-mode-hook conf-mode-hook))
 ;;   (add-hook hook #'jinx-mode))
 ;;
-;; In order to correct misspellings bind `jinx-correct' to a
-;; convenient key in your configuration.  Jinx is independent of the
-;; Ispell package, so you can reuse the binding M-$ which is bound to
-;; `ispell-word' by default.  When pressing M-$, Jinx offers
-;; correction suggestions for the misspelling next to point.  If the
-;; prefix key C-u is pressed, the entire buffer is spell-checked.
+;; Furthermore Jinx brings two auto-loaded commands `jinx-correct' and
+;; `jinx-languages'.  In order to correct misspellings bind
+;; `jinx-correct' to a convenient key in your configuration.  Jinx is
+;; independent of the Ispell package, so you can reuse the binding M-$
+;; which is bound to `ispell-word' by default.  When pressing M-$,
+;; Jinx offers correction suggestions for the misspelling next to
+;; point.  If the prefix key C-u is pressed, the entire buffer is
+;; spell-checked.
 ;;
 ;; (keymap-global-set "<remap> <ispell-word>" #'jinx-correct)
 ;;
@@ -122,21 +123,20 @@
   "Face used for the accept action during correction.")
 
 (defcustom jinx-languages
-  (or (bound-and-true-p current-locale-environment)
-      (getenv "LANG")
-      "en_US")
+  (replace-regexp-in-string
+   "\\..*\\'" ""
+   (or (bound-and-true-p current-locale-environment)
+       (getenv "LANG")
+       "en_US"))
   "List of languages."
   :type '(choice string (repeat string)))
 
 ;;;###autoload
 (put 'jinx-languages 'safe-local-variable
      (lambda (val)
-       (or (stringp val)
-           (and (listp val)
-                (catch 'break
-                  (dolist (s val t)
-                    (unless (stringp s)
-                      (throw 'break nil))))))))
+       (while (and (consp val) (stringp (car val)))
+         (setq val (cdr val)))
+       (or (not val) (stringp val))))
 
 (defcustom jinx-include-faces
   '((prog-mode font-lock-comment-face
@@ -242,6 +242,7 @@ Predicate may return a position to skip forward.")
 (declare-function jinx--mod-suggest nil)
 (declare-function jinx--mod-dict nil)
 (declare-function jinx--mod-describe nil)
+(declare-function jinx--mod-langs nil)
 (declare-function jinx--mod-wordchars nil)
 (declare-function org-fold-core-region "org-fold-core")
 (declare-function org-fold-core-get-regions "org-fold-core")
@@ -614,38 +615,60 @@ Return list of overlays, see `jinx--get-overlays'."
 ;;;; Public commands
 
 ;;;###autoload
+(defun jinx-languages (&optional global)
+  "Change languages locally or globally.
+With prefix argument GLOBAL non-nil change the languages globally."
+  (interactive "*P")
+  (jinx--load-module)
+  (when-let ((langs
+              (completing-read-multiple
+               (format "Change languages (%s): "
+                       (string-join (ensure-list jinx-languages) ", "))
+               (delete-dups (jinx--mod-langs)) nil t)))
+    (when (length= langs 1)
+      (setq langs (car langs)))
+    (if (not global)
+        (setq-local jinx-languages langs)
+      (when (local-variable-p 'jinx-languages)
+        (kill-local-variable 'jinx-languages))
+      (setq-default jinx-languages langs))
+    (jinx-mode -1)
+    (jinx-mode 1)))
+
+;;;###autoload
 (defun jinx-correct (&optional all)
   "Correct nearest misspelled word.
-If predicate argument ALL is given correct all misspellings."
+If prefix argument ALL non-nil correct all misspellings."
   (interactive "*P")
   (unless jinx-mode (jinx-mode 1))
-  (unwind-protect
-      (save-window-excursion
-        (save-excursion
-          (cl-letf (((symbol-function #'jinx--timer-handler) #'ignore)) ;; Inhibit
-            (if all
-                (let* ((overlays (or (jinx--force-overlays (point-min) (point-max))
-                                     (user-error "No misspellings in whole buffer")))
-                       (nearest (jinx--nearest-overlay overlays))
-                       (count (length overlays))
-                       before after)
-                  (dolist (ov overlays)
-                    (if (or after (eq ov nearest))
-                        (push ov after)
-                      (push ov before)))
-                  (setq overlays (nreverse (nconc before after)))
-                  (cl-loop for ov in overlays for idx from 1
-                           if (overlay-buffer ov) do ;; Could be already deleted
-                           (jinx--correct ov 'recenter
-                                          (format " (%d of %d, RET to skip)"
-                                                  idx count))))
-              (jinx--correct
-               (or
-                (jinx--nearest-overlay
-                 (or (jinx--get-overlays (window-start) (window-end))
-                     (jinx--force-overlays (window-start) (window-end))))
-                (user-error "No misspelling in visible text")))))))
-    (jit-lock-refontify)))
+  (cl-letf (((symbol-function #'jinx--timer-handler) #'ignore) ;; Inhibit
+            (old-point (and (not all) (point-marker))))
+    (unwind-protect
+        (if all
+            (let* ((overlays (or (jinx--force-overlays (point-min) (point-max))
+                                 (user-error "No misspellings in whole buffer")))
+                   (nearest (jinx--nearest-overlay overlays))
+                   (count (length overlays))
+                   before after)
+              (push-mark)
+              (dolist (ov overlays)
+                (if (or after (eq ov nearest))
+                    (push ov after)
+                  (push ov before)))
+              (setq overlays (nreverse (nconc before after)))
+              (cl-loop for ov in overlays for idx from 1
+                       if (overlay-buffer ov) do ;; Could be already deleted
+                       (jinx--correct ov 'recenter
+                                      (format " (%d of %d, RET to skip)"
+                                              idx count))))
+          (jinx--correct
+           (or
+            (jinx--nearest-overlay
+             (or (jinx--get-overlays (window-start) (window-end))
+                 (jinx--force-overlays (window-start) (window-end))))
+            (user-error "No misspelling in visible text"))))
+      (when old-point (goto-char old-point))
+      (jit-lock-refontify))))
 
 ;;;###autoload
 (define-minor-mode jinx-mode
@@ -654,7 +677,8 @@ If predicate argument ALL is given correct all misspellings."
   (cond
    (jinx-mode
     (jinx--load-module)
-    (hack-local-variables)
+    (let ((enable-local-variables :safe))
+      (hack-local-variables))
     (jinx--get-org-language)
     (setq jinx--exclude-regexp
           (when-let ((regexps (jinx--mode-list jinx-exclude-regexps)))
