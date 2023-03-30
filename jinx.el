@@ -36,11 +36,12 @@
 ;; that process communication with a backend Aspell process can be
 ;; avoided.  Libenchant is widely used as spell-checking API by text
 ;; editors and supports Nuspell, Hunspell, Aspell and a few lesser
-;; known backends.  Jinx automatically compiles and loads the native
-;; module at startup.  Libenchant must be installed on your system for
-;; compilation.  If `pkg-config' is available it will be used to
-;; locate libenchant.  On Debian or Ubuntu, install the packages
-;; `libenchant-2-2', `libenchant-2-dev' and `pkg-config'.
+;; known backends.  Jinx automatically compiles `jinx-mod.c' and loads
+;; the dynamic module at startup.  Libenchant must be installed on
+;; your system for compilation.  If `pkg-config' is available it will
+;; be used to locate libenchant.  On Debian or Ubuntu, install the
+;; packages `libenchant-2-2', `libenchant-2-dev' and `pkg-config'.
+;; On Fedora or RHEL, install the package `enchant2-devel'.
 ;;
 ;; Jinx supports multiple languages in a buffer at the same time via
 ;; the `jinx-languages' customization variable.  It offers flexible
@@ -165,11 +166,12 @@ checking."
      org-todo-keyword-habt org-todo-keyword-kill
      org-todo-keyword-outd org-todo-keyword-todo
      org-todo-keyword-wait org-verbatim
-     org-modern-tag org-modern-date-active org-modern-date-inactive)
+     org-modern-tag org-modern-date-active
+     org-modern-date-inactive)
     (tex-mode
      font-latex-math-face font-latex-sedate-face
-     font-lock-function-name-face font-lock-keyword-face
-     font-lock-variable-name-face)
+     font-latex-verbatim-face font-lock-function-name-face
+     font-lock-keyword-face font-lock-variable-name-face)
     (texinfo-mode
      font-lock-function-name-face font-lock-keyword-face
      font-lock-variable-name-face)
@@ -198,6 +200,17 @@ checking."
   '(text-mode prog-mode conf-mode)
   "List of modes included by `global-jinx-mode'."
   :type '(repeat symbol))
+
+;;;; Keymaps
+
+(defvar-keymap jinx-mode-map
+  :doc "Keymap for `jinx-mode'.")
+
+(defvar-keymap jinx-misspelled-map
+  :doc "Keymap attached to misspelled words."
+  "<mouse-1>" #'jinx-correct)
+
+(fset 'jinx-misspelled-map jinx-misspelled-map)
 
 ;;;; Internal variables
 
@@ -256,12 +269,6 @@ Predicate may return a position to skip forward.")
 (put 'jinx 'insert-in-front-hooks (list #'jinx--overlay-modified))
 (put 'jinx 'insert-behind-hooks   (list #'jinx--overlay-modified))
 (put 'jinx 'keymap                'jinx-misspelled-map)
-
-(defvar-keymap jinx-misspelled-map
-  :doc "Keymap attached to misspelled words."
-  "<mouse-1>" #'jinx-correct)
-
-(fset 'jinx-misspelled-map jinx-misspelled-map)
 
 ;;;; Predicates
 
@@ -323,11 +330,9 @@ FLAG must be t or nil."
                  (next-single-char-property-change start 'invisible nil end))))
   start)
 
-(defun jinx--check-pending ()
-  "Check pending visible regions."
-  (let* ((start (window-start))
-         (end (window-end))
-         (pos start))
+(defun jinx--check-pending (start end)
+  "Check pending visible region between START and END."
+  (let ((pos start))
     (while (< pos end)
       (let* ((from (jinx--find-visible-pending pos end t))
              (to (jinx--find-visible-pending from end nil)))
@@ -357,7 +362,10 @@ Returns a pair of updated (START END) bounds."
               (while (re-search-forward "\\<\\w+\\>" end t)
                 (let ((word-start (match-beginning 0))
                       (word-end (point)))
-                  ;; No quote or apostrophe at end
+                  ;; No quote or apostrophe at start or end
+                  (while (and (< word-start word-end)
+                              (let ((c (char-after word-start))) (or (= c 39) (= c 8217))))
+                    (cl-incf word-start))
                   (while (and (< word-start word-end)
                               (let ((c (char-before word-end))) (or (= c 39) (= c 8217))))
                     (cl-decf word-end))
@@ -418,10 +426,10 @@ Returns a pair of updated (START END) bounds."
   (setq jinx--timer nil)
   (dolist (frame (frame-list))
     (dolist (win (window-list frame 'no-miniwindow))
-      (with-current-buffer (window-buffer win)
-        (when jinx-mode
-          (with-selected-window win
-            (jinx--check-pending)))))))
+      (when-let ((buffer (window-buffer win))
+                 ((buffer-local-value 'jinx-mode buffer)))
+        (with-current-buffer buffer
+          (jinx--check-pending (window-start win) (window-end win)))))))
 
 (defun jinx--reschedule (&rest _)
   "Restart the global idle timer."
@@ -438,10 +446,10 @@ Returns a pair of updated (START END) bounds."
                                nil #'jinx--timer-handler))))
 
 (defun jinx--load-module ()
-  "Compile and load native module."
+  "Compile and load dynamic module."
   (unless (fboundp #'jinx--mod-dict)
     (unless module-file-suffix
-      (error "Jinx: Native modules are not supported"))
+      (error "Jinx: Dynamic modules are not supported"))
     (let ((default-directory
            (file-name-directory (locate-library "jinx.el" t)))
           (module (file-name-with-extension "jinx-mod" module-file-suffix)))
@@ -673,7 +681,7 @@ If prefix argument ALL non-nil correct all misspellings."
 ;;;###autoload
 (define-minor-mode jinx-mode
   "Enchanted Just-in-time Spell Checker."
-  :global nil :group 'jinx
+  :global nil :group 'jinx :keymap jinx-mode-map
   (cond
    (jinx-mode
     (jinx--load-module)
