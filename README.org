@@ -15,8 +15,10 @@
 Jinx is a fast just-in-time spell-checker for Emacs. Jinx highlights misspelled
 words in the text of the visible portion of the buffer. For efficiency, Jinx
 highlights misspellings lazily, recognizes window boundaries and text folding,
-if any. Each misspelling can then be corrected from a list of dictionary words
-presented as completion candidates in a list.
+if any. For example, when unfolding or scrolling, only the newly visible part of
+the text is checked, if it has not been checked before. Each misspelling can
+then be corrected from a list of dictionary words presented as completion
+candidates in a list.
 
 Installing Jinx is straight-forward and configuring takes not much intervention.
 Jinx can safely co-exist with Emacs's built-in spell-checker.
@@ -111,10 +113,11 @@ spell checkers. See the [[https://abiword.github.io/enchant/src/enchant.html][En
   (affixation, compound words, etc.).
 
 - flyspell: Flyspell is Emacs's built-in package. Flyspell highlights
-  misspellings in realtime, while typing. Each word under the cursor is
+  misspellings in real-time, while typing. Each word under the cursor is
   spell-checked and underlined if mistyped. Jinx, on the other hand, is more
-  effective because it checks for misspellings in the entire visible text of the
-  buffer at once.
+  effective because it automatically checks for misspellings in the entire
+  visible text of the buffer at once. Flyspell can check the entire buffer but
+  must be instructed to do so via the command =flyspell-buffer=.
 
 * Contributions
 
