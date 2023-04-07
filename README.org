@@ -1,10 +1,10 @@
-#+title: jinx.el - Enchanted Just-in-time Spell Checker
+#+title: jinx.el - Enchanted Spell Checker
 #+author: Daniel Mendler
 #+language: en
 #+export_file_name: jinx.texi
 #+texinfo_dir_category: Emacs misc features
 #+texinfo_dir_title: Jinx: (jinx).
-#+texinfo_dir_desc: Enchanted just-in-time spell checker
+#+texinfo_dir_desc: Enchanted Spell Checker
 
 #+html: <a href="https://www.gnu.org/software/emacs/"><img alt="GNU Emacs" src="https://github.com/minad/corfu/blob/screenshots/emacs.svg?raw=true"/></a>
 #+html: <a href="https://elpa.gnu.org/packages/jinx.html"><img alt="GNU ELPA" src="https://elpa.gnu.org/packages/jinx.svg"/></a>
@@ -47,9 +47,9 @@ Jinx requires =libenchant=. Enchant library is a required dependency for Jinx to
 compile its module at install time. If =pkg-config= is available when installing
 Jinx, Jinx will use =pkg-config= to locate =libenchant=.
 
-On Debian or Ubuntu, install packages =libenchant-2-2=, =libenchant-2-dev= and
-=pkg-config=. On Fedora or RHEL, install the package =enchant2-devel=. On Mac,
-install =enchant2= and =pkgconfig=.
+On Debian or Ubuntu, install the packages =libenchant-2-dev= and =pkg-config=. On
+Fedora or RHEL, install the package =enchant2-devel=. On Mac, install =enchant2= and
+=pkgconfig=.
 
 * Using Jinx
 
@@ -57,8 +57,10 @@ Jinx has two modes: the command, =global-jinx-mode= activates globally; and the
 command, =jinx-mode=, for activating for specific modes.
 
 #+begin_src emacs-lisp
+  ;; Alternative 1: Enable Jinx globally
   (add-hook 'emacs-startup-hook #'global-jinx-mode)
 
+  ;; Alternative 2: Enable Jinx per mode
   (dolist (hook '(text-mode-hook prog-mode-hook conf-mode-hook))
     (add-hook hook #'jinx-mode))
 #+end_src
@@ -99,27 +101,32 @@ spell checkers. See the [[https://abiword.github.io/enchant/src/enchant.html][En
 
 * Alternative spell-checking packages
 
+There exist multiple alternative spell-checking packages for Emacs, most
+famously the builtin ispell.el and flyspell.el packages. The following three
+packages come closest to the behavior of Jinx.
+
 - [[https://github.com/astoff/jit-spell][jit-spell]]: Jinx UI borrows ideas from Augusto Stoffel's Jit-spell. Jit-spell
   uses the less efficient Ispell process communication instead Jinx's calling
   native API. Since Jit-spell highlights misspellings in the entire buffer and
-  does not confine to just the visible text, Jit-spell has load and latency
-  consequences especially in stealth locking and eager fontification.
+  does not confine to just the visible text, Jit-spell affects the load and
+  latency negatively ([[https://github.com/astoff/jit-spell/issues/9][issue on github]]).
 
 - [[https://codeberg.org/ideasman42/emacs-spell-fu][spell-fu]]: The idea to highlight misspellings just in the visible text portion
-  of the buffer came from Campbell Barton's spell-fu package. Spell-fu however
-  incurs high memory overhead on account of its dictionary in a hash table. For
-  languages with compound words and inflected word forms, this memory overhead
-  magnifies. By accessing the Enchant API directly, Jinx avoids this overhead.
-  Jinx also benefits from Enchant's advanced spell-checker algorithms
-  (affixation, compound words, etc.).
+  of the buffer came from Campbell Barton's spell-fu package. Spell-fu is fast
+  but incurs high memory overhead on account of its dictionary in a hash table.
+  For languages with compound words and inflected word forms, this overhead
+  magnifies ([[https://codeberg.org/ideasman42/emacs-spell-fu/issues/40][issue on codeberg]]). By accessing the Enchant API directly, Jinx
+  avoids such an overhead. Jinx also benefits from the advanced spell-checker
+  algorithms of Enchant (affixation, compound words, etc.).
 
 - flyspell: Flyspell is Emacs's built-in package. Flyspell highlights
-  misspellings in real-time, while typing. Each word under the cursor is
-  spell-checked and underlined if mistyped. Jinx, on the other hand, is more
-  effective because it automatically checks for misspellings in the entire
-  visible text of the buffer at once. Flyspell can check the entire buffer but
-  must be instructed to do so via the command =flyspell-buffer=.
+  misspellings while typing. Only the word under the cursor is spell-checked.
+  Jinx, on the other hand, is more effective because it automatically checks for
+  misspellings in the entire visible text of the buffer at once. Flyspell can
+  check the entire buffer but must be instructed to do so via the command
+  =flyspell-buffer=.
 
 * Contributions
 
-Since this package is part of [[https://elpa.gnu.org/packages/jinx.html][GNU ELPA]] contributions require a copyright assignment to the FSF.
+Since this package is part of [[https://elpa.gnu.org/packages/jinx.html][GNU ELPA]] contributions require a copyright
+assignment to the FSF.

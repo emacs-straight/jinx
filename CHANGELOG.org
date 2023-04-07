@@ -2,6 +2,18 @@
 #+author: Daniel Mendler
 #+language: en
 
+* Development
+
+- Fix the type of a few characters: =.= punctuation character, ='= word character, =%=
+  and =$= identifier characters.
+- Abandon =flyspell-mode-predicate= completely. Rely on faces only.
+- =jinx-languages=: The value must be a string now. Multiple language codes can be
+  separated by space.
+- =jinx-languages=: Ask if the file-local variable should be saved when changing
+  the language.
+- Add =jinx-local-words= to save file-local words. =jinx-correct= supports saving to
+  =jinx-local-words= by pressing =*=.
+
 * Version 0.5 (2023-04-05)
 
 - Add =jinx-languages= command to switch languages locally or globally.

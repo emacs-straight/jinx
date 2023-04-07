@@ -1,4 +1,4 @@
-;;; jinx.el --- Enchanted Just-in-time Spell Checker -*- lexical-binding: t -*-
+;;; jinx.el --- Enchanted Spell Checker -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2023 Free Software Foundation, Inc.
 
@@ -54,7 +54,7 @@
 ;;;; Customization
 
 (defgroup jinx nil
-  "Enchanted Just-in-time Spell Checker."
+  "Enchanted Spell Checker."
   :link '(info-link :tag "Info Manual" "(jinx)")
   :link '(url-link :tag "Homepage" "https://github.com/minad/jinx")
   :link '(emacs-library-link :tag "Library Source" "jinx.el")
@@ -89,15 +89,11 @@
    (or (bound-and-true-p current-locale-environment)
        (getenv "LANG")
        "en_US"))
-  "List of languages."
-  :type '(choice string (repeat string)))
+  "Dictionary language codes, as a string separated by whitespace."
+  :type 'string)
 
 ;;;###autoload
-(put 'jinx-languages 'safe-local-variable
-     (lambda (val)
-       (while (and (consp val) (stringp (car val)))
-         (setq val (cdr val)))
-       (or (not val) (stringp val))))
+(put 'jinx-languages 'safe-local-variable #'stringp)
 
 (defcustom jinx-include-faces
   '((prog-mode font-lock-comment-face
@@ -163,14 +159,22 @@ checking."
     (t "[A-Z]+\\>"         ;; Uppercase words
        "\\w*?[0-9]\\w*\\>" ;; Words with numbers, hex codes
        "[a-z]+://\\S-+"    ;; URI
-       "<?[-+_.~a-zA-Z][-+_.~:a-zA-Z0-9]*@[-.a-zA-Z0-9]+>?")) ;; Email
-  "List of excluded regexps."
+       "<?[-+_.~a-zA-Z][-+_.~:a-zA-Z0-9]*@[-.a-zA-Z0-9]+>?" ;; Email
+       "\\(?:Local Variables\\|End\\):\\s-*$" ;; Local variable indicator
+       "jinx-\\(?:languages\\|local-words\\):\\s-+.*$")) ;; Local variables
+  "List of excluded regexps per major mode."
   :type '(alist :key-type symbol :value-type (repeat regexp)))
 
 (defcustom jinx-include-modes
   '(text-mode prog-mode conf-mode)
   "List of modes included by `global-jinx-mode'."
   :type '(repeat symbol))
+
+(defvar-local jinx-local-words ""
+  "File-local words, as a string separated by whitespace.")
+
+;;;###autoload
+(put 'jinx-local-words 'safe-local-variable #'stringp)
 
 ;;;; Keymaps
 
@@ -188,8 +192,7 @@ checking."
 (defvar jinx--predicates
   (list #'jinx--face-ignored-p
         #'jinx--regexp-ignored-p
-        #'jinx--word-valid-p
-        #'jinx--flyspell-ignored-p)
+        #'jinx--word-valid-p)
   "Predicate functions called at point with argument START.
 Predicate should return t if the word before point is valid.
 Predicate may return a position to skip forward.")
@@ -214,9 +217,6 @@ Predicate may return a position to skip forward.")
 
 (defvar-local jinx--syntax-table nil
   "Syntax table used during checking.")
-
-(defvar-local jinx--mode-syntax-table nil
-  "Original syntax table of the mode.")
 
 (defvar-local jinx--session-words nil
   "List of words accepted in this session.")
@@ -275,16 +275,6 @@ Predicate may return a position to skip forward.")
         (cl-loop for dict in jinx--dicts
                  thereis (jinx--mod-check dict word)))))
 
-(defun jinx--flyspell-ignored-p (_start)
-  "Check if word before point is ignored.
-This predicate uses the `flyspell-mode-predicate' provided by
-some Emacs modes."
-  (when-let ((pred (or (bound-and-true-p flyspell-generic-check-word-predicate)
-                       (get major-mode 'flyspell-mode-predicate))))
-    (with-syntax-table jinx--mode-syntax-table
-      (let ((case-fold-search t))
-        (ignore-errors (not (funcall pred)))))))
-
 ;;;; Internal functions
 
 (defun jinx--overlay-modified (overlay &rest _)
@@ -324,7 +314,7 @@ FLAG must be t or nil."
 (defun jinx--check-region (start end)
   "Check region between START and END.
 Return updated END position."
-  (let ((jinx--mode-syntax-table (syntax-table))
+  (let ((st (syntax-table))
         (case-fold-search nil))
     (unwind-protect
         (with-silent-modifications
@@ -367,7 +357,7 @@ Return updated END position."
                          (overlay-put (make-overlay word-start subword-end) 'category 'jinx)))
                       (setq word-start subword-end)))))
               (remove-list-of-text-properties start end '(jinx--pending)))))
-      (set-syntax-table jinx--mode-syntax-table)))
+      (set-syntax-table st)))
   end)
 
 (defun jinx--get-overlays (start end &optional visible)
@@ -512,6 +502,9 @@ If VISIBLE is non-nil, only include visible overlays."
              (propertize (concat at (downcase word))
                          'jinx--group group 'jinx--annotation ann))))
     (list
+     (propertize (concat #("*" 0 1 (face jinx-accept rear-nonsticky t)) word)
+                 'jinx--group "Accept and save word"
+                 'jinx--annotation " [File]")
      (propertize (concat #("#" 0 1 (face jinx-accept rear-nonsticky t)) word)
                  'jinx--group "Accept and save word"
                  'jinx--annotation " [Session]")))))
@@ -584,16 +577,25 @@ If VISIBLE is non-nil, only include visible overlays."
                                    (jinx--suggestion-table word)
                                    nil nil nil t word)
                   word)))))
-    (if (string-match-p "\\`[@#]" selected)
-        (let* ((new-word (replace-regexp-in-string "\\`[@#]+" "" selected))
+    (if (string-match-p "\\`[@#*]" selected)
+        (let* ((new-word (replace-regexp-in-string "\\`[@#*]+" "" selected))
                (idx (- (length selected) (length new-word) 1)))
           (when (equal new-word "") (setq new-word word))
-          (if (string-prefix-p "#" selected)
-              (unless (member new-word jinx--session-words)
-                (push new-word jinx--session-words))
-            (jinx--mod-add (or (nth idx jinx--dicts)
-                               (user-error "Invalid dictionary"))
-                           new-word))
+          (cond
+           ((string-prefix-p "#" selected)
+            (add-to-list 'jinx--session-words new-word))
+           ((string-prefix-p "*" selected)
+            (add-to-list 'jinx--session-words new-word)
+            (setq jinx-local-words
+                  (string-join
+                   (sort (delete-dups
+                          (cons new-word (split-string jinx-local-words)))
+                         #'string<)
+                   " "))
+            (add-file-local-variable 'jinx-local-words jinx-local-words))
+           (t (jinx--mod-add (or (nth idx jinx--dicts)
+                                 (user-error "Invalid dictionary"))
+                             new-word)))
           (jinx--recheck-overlays))
       (when-let (((not (equal selected word)))
                  (start (overlay-start overlay))
@@ -602,6 +604,21 @@ If VISIBLE is non-nil, only include visible overlays."
         (goto-char end)
         (insert-before-markers selected)
         (delete-region start end)))))
+
+(defun jinx--load-dicts ()
+  "Load dictionaries and setup syntax table."
+  (setq jinx--dicts (delq nil (mapcar #'jinx--mod-dict
+                                      (split-string jinx-languages)))
+        jinx--syntax-table (make-syntax-table))
+  (unless jinx--dicts
+    (message "Jinx: No dictionaries available for %S" jinx-languages))
+  (dolist (dict jinx--dicts)
+    (cl-loop for c across (jinx--mod-wordchars dict) do
+             (modify-syntax-entry c "w" jinx--syntax-table)))
+  (modify-syntax-entry ?$ "_" jinx--syntax-table)
+  (modify-syntax-entry ?% "_" jinx--syntax-table)
+  (modify-syntax-entry ?' "w" jinx--syntax-table)
+  (modify-syntax-entry ?. "." jinx--syntax-table))
 
 ;;;; Public commands
 
@@ -614,16 +631,19 @@ With prefix argument GLOBAL non-nil change the languages globally."
   (when-let ((langs
               (completing-read-multiple
                (format "Change languages (%s): "
-                       (string-join (ensure-list jinx-languages) ", "))
+                       (string-join (split-string jinx-languages) ", "))
                (delete-dups (jinx--mod-langs)) nil t)))
-    (when (length= langs 1)
-      (setq langs (car langs)))
-    (if (not global)
-        (setq-local jinx-languages langs)
+    (setq langs (string-join langs " "))
+    (cond
+     (global
       (kill-local-variable 'jinx-languages)
       (setq-default jinx-languages langs))
-    (jinx-mode -1)
-    (jinx-mode 1)))
+     (t
+      (setq-local jinx-languages langs)
+      (when (y-or-n-p "Save `jinx-languages' as file-local variable? ")
+        (add-file-local-variable 'jinx-languages jinx-languages))))
+    (jinx--load-dicts)
+    (jinx--cleanup)))
 
 ;;;###autoload
 (defun jinx-correct (&optional all)
@@ -656,7 +676,7 @@ If prefix argument ALL non-nil correct all misspellings."
 
 ;;;###autoload
 (define-minor-mode jinx-mode
-  "Enchanted Just-in-time Spell Checker."
+  "Enchanted Spell Checker."
   :global nil :group 'jinx :keymap jinx-mode-map
   (cond
    (jinx-mode
@@ -673,29 +693,17 @@ If prefix argument ALL non-nil correct all misspellings."
           jinx--camel (or (eq jinx-camel-modes t)
                           (cl-loop for m in jinx-camel-modes
                                    thereis (derived-mode-p m)))
-          jinx--dicts (delq nil (mapcar #'jinx--mod-dict
-                                        (ensure-list jinx-languages)))
-          jinx--syntax-table (make-syntax-table))
-    (unless jinx--dicts
-      (message "Jinx: No dictionaries available for `jinx-languages' = %S"
-               jinx-languages))
-    (modify-syntax-entry ?' "w" jinx--syntax-table)
-    (modify-syntax-entry ?$ "_" jinx--syntax-table)
-    (modify-syntax-entry ?% "_" jinx--syntax-table)
-    (dolist (dict jinx--dicts)
-      (cl-loop for c across (jinx--mod-wordchars dict) do
-               (modify-syntax-entry c "w" jinx--syntax-table)))
+          jinx--session-words (split-string jinx-local-words))
+    (jinx--load-dicts)
     (add-hook 'window-state-change-hook #'jinx--reschedule nil t)
     (add-hook 'window-scroll-functions #'jinx--reschedule nil t)
     (add-hook 'post-command-hook #'jinx--reschedule nil t)
     (jit-lock-register #'jinx--mark-pending))
    (t
-    (kill-local-variable 'jinx--exclude-regexp)
-    (kill-local-variable 'jinx--include-faces)
-    (kill-local-variable 'jinx--exclude-faces)
-    (kill-local-variable 'jinx--camel)
-    (kill-local-variable 'jinx--dicts)
-    (kill-local-variable 'jinx--syntax-table)
+    (mapc #'kill-local-variable '(jinx--exclude-regexp jinx--include-faces
+                                  jinx--exclude-faces jinx--camel
+                                  jinx--dicts jinx--syntax-table
+                                  jinx--session-words))
     (remove-hook 'window-state-change-hook #'jinx--reschedule t)
     (remove-hook 'window-scroll-functions #'jinx--reschedule t)
     (remove-hook 'post-command-hook #'jinx--reschedule t)
