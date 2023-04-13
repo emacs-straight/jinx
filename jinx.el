@@ -179,14 +179,26 @@ checking."
 
 ;;;; Keymaps
 
-(defvar-keymap jinx-mode-map
-  :doc "Keymap for `jinx-mode'.")
-
 (defvar-keymap jinx-misspelled-map
   :doc "Keymap attached to misspelled words."
   "<mouse-1>" #'jinx-correct)
 
 (fset 'jinx-misspelled-map jinx-misspelled-map)
+
+(defvar-keymap jinx-mode-map
+  :doc "Keymap used when Jinx is active.")
+
+(easy-menu-define jinx-mode-menu jinx-mode-map
+  "Menu used when Jinx is active."
+  '("Jinx"
+    ["Correct nearest" jinx-correct]
+    ["Correct all" (jinx-correct t)
+     :keys "\\[universal-argument] \\[jinx-correct]"]
+    ["Change languages" jinx-languages]
+    "----"
+    ["Manual" (info "(jinx)")]
+    ["Customize" (customize-group 'jinx)]
+    ["Turn off" (jinx-mode -1)]))
 
 ;;;; Internal variables
 
@@ -297,12 +309,16 @@ FLAG must be t or nil."
 
 (defun jinx--check-pending (start end)
   "Check pending visible region between START and END."
-  (let ((pos start))
+  (let ((pos start)
+        (skip (and (symbolp real-last-command)
+                   (string-match-p "self-insert-command\\'"
+                                   (symbol-name real-last-command))
+                   (point))))
     (while (< pos end)
       (let* ((from (jinx--find-visible-pending pos end t))
              (to (jinx--find-visible-pending from end nil)))
         (if (< from to)
-            (setq pos (jinx--check-region from to))
+            (setq pos (jinx--check-region from to skip))
           (setq pos to))))))
 
 (defun jinx--force-check-region (start end)
@@ -312,11 +328,12 @@ FLAG must be t or nil."
   (with-delayed-message (1 "Checking...")
     (jinx--check-region start end)))
 
-(defun jinx--check-region (start end)
+(defun jinx--check-region (start end &optional retry)
   "Check region between START and END.
-Return updated END position."
-  (let ((st (syntax-table))
-        (case-fold-search nil))
+Optionally RETRY word at given position.  Return updated END
+position."
+  (let ((st (syntax-table)) case-fold-search
+        retry-start retry-end)
     (unwind-protect
         (with-silent-modifications
           (save-excursion
@@ -355,9 +372,13 @@ Return updated END position."
                         ((and (pred integerp) skip)
                          (goto-char (max subword-end (min end skip))))
                         ('nil
-                         (overlay-put (make-overlay word-start subword-end) 'category 'jinx)))
+                         (if (and retry (<= word-start retry subword-end))
+                             (setq retry-start word-start retry-end subword-end retry nil)
+                           (overlay-put (make-overlay word-start subword-end) 'category 'jinx))))
                       (setq word-start subword-end)))))
-              (remove-list-of-text-properties start end '(jinx--pending)))))
+              (remove-list-of-text-properties start end '(jinx--pending))
+              (when retry-start
+                (put-text-property retry-start retry-end 'jinx--pending t)))))
       (set-syntax-table st)))
   end)
 
@@ -434,10 +455,12 @@ If VISIBLE is non-nil, only include visible overlays."
 
 (defun jinx--schedule ()
   "Start the global idle timer."
-  (when (and (not jinx--timer) (get-buffer-window))
-    (setq jinx--timer
-          (run-with-idle-timer jinx-delay
-                               nil #'jinx--timer-handler))))
+  (when (and (not jinx--timer)
+             (not completion-in-region-mode) ;; Corfu completion
+             (get-buffer-window)) ;; Buffer visible
+      (setq jinx--timer
+            (run-with-idle-timer jinx-delay
+                                 nil #'jinx--timer-handler))))
 
 (defun jinx--load-module ()
   "Compile and load dynamic module."
@@ -678,7 +701,9 @@ If prefix argument ALL non-nil correct all misspellings."
 ;;;###autoload
 (define-minor-mode jinx-mode
   "Enchanted Spell Checker."
-  :global nil :group 'jinx :keymap jinx-mode-map
+  :lighter (" " jinx-languages)
+  :group 'jinx
+  :keymap jinx-mode-map
   (cond
    (jinx-mode
     (jinx--load-module)
