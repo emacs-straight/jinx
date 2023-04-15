@@ -135,7 +135,7 @@ Set to t to enable camelCase everywhere."
      org-modern-tag org-modern-date-active
      org-modern-date-inactive)
     (tex-mode
-     font-latex-math-face font-latex-sedate-face
+     tex-math font-latex-math-face font-latex-sedate-face
      font-latex-verbatim-face font-lock-function-name-face
      font-lock-keyword-face font-lock-variable-name-face)
     (texinfo-mode
@@ -342,11 +342,13 @@ position."
               (set-syntax-table jinx--syntax-table)
               ;; Ensure that region starts and ends at word boundaries
               (goto-char start)
-              (re-search-backward "\\s-\\|^")
-              (setq start (match-end 0))
+              (unless (looking-at-p "\\<")
+                (re-search-backward "\\<\\|^")
+                (setq start (match-beginning 0)))
               (goto-char end)
-              (re-search-forward "\\s-\\|$")
-              (setq end (match-beginning 0))
+              (unless (looking-at-p "\\>")
+                (re-search-forward "\\>\\|$")
+                (setq end (match-beginning 0)))
               (jinx--delete-overlays start end)
               (goto-char start)
               (while (re-search-forward "\\<\\w+\\>" end t)
