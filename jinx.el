@@ -6,7 +6,7 @@
 ;; Maintainer: Daniel Mendler <mail@daniel-mendler.de>
 ;; Package-Requires: ((emacs "27.1") (compat "29.1.4.0"))
 ;; Created: 2023
-;; Version: 0.5
+;; Version: 0.6
 ;; Homepage: https://github.com/minad/jinx
 ;; Keywords: convenience, wp
 
@@ -460,9 +460,9 @@ If VISIBLE is non-nil, only include visible overlays."
   (when (and (not jinx--timer)
              (not completion-in-region-mode) ;; Corfu completion
              (get-buffer-window)) ;; Buffer visible
-      (setq jinx--timer
-            (run-with-idle-timer jinx-delay
-                                 nil #'jinx--timer-handler))))
+    (setq jinx--timer
+          (run-with-idle-timer jinx-delay
+                               nil #'jinx--timer-handler))))
 
 (defun jinx--load-module ()
   "Compile and load dynamic module."
@@ -508,13 +508,19 @@ If VISIBLE is non-nil, only include visible overlays."
   (delete-dups
    (nconc
     (cl-loop
+     with idx = 1
      for dict in jinx--dicts nconc
      (let* ((suggs (jinx--mod-suggest dict word))
             (desc (jinx--mod-describe dict))
             (group (format "Suggestions from dictionary ‘%s’ (%s)"
                            (car desc) (cdr desc))))
        (dolist (sugg suggs suggs)
-         (put-text-property 0 (length sugg) 'jinx--group group sugg))))
+         (add-text-properties
+          0 (length sugg)
+          (list 'jinx--group group
+                'jinx--annotation (and (< idx 10) (format " (%s)" idx)))
+          sugg)
+         (cl-incf idx))))
     (cl-loop
      for dict in jinx--dicts for idx from 1 nconc
      (let* ((at (propertize (make-string idx ?@)
@@ -592,6 +598,16 @@ If VISIBLE is non-nil, only include visible overlays."
           (when (jinx--word-valid-p (overlay-start ov))
             (delete-overlay ov)))))))
 
+(defun jinx--correct-select ()
+  "Quick selection key for corrections."
+  (interactive)
+  (let ((word (nth (- last-input-event ?1)
+                   (all-completions "" minibuffer-completion-table))))
+    (when (and word (not (string-match-p "\\`[@#*]" word)))
+      (delete-minibuffer-contents)
+      (insert word)
+      (exit-minibuffer))))
+
 (defun jinx--correct (overlay &optional recenter info)
   "Correct word at OVERLAY with optional RECENTER and prompt INFO."
   (let* ((word (buffer-substring-no-properties
@@ -599,10 +615,23 @@ If VISIBLE is non-nil, only include visible overlays."
          (selected
           (jinx--with-highlight overlay recenter
             (lambda ()
-              (or (completing-read (format "Correct ‘%s’%s: " word (or info ""))
-                                   (jinx--suggestion-table word)
-                                   nil nil nil t word)
-                  word)))))
+              (minibuffer-with-setup-hook
+                  (lambda ()
+                    (let ((message-log-max nil)
+                          (inhibit-message t)
+                          (map (define-keymap :parent (current-local-map)
+                                 "SPC" #'self-insert-command)))
+                      (dotimes (i 9)
+                        (define-key map (vector (+ ?1 i)) #'jinx--correct-select))
+                      (use-local-map map)
+                      (when (and (eq completing-read-function #'completing-read-default)
+                                 (not (bound-and-true-p vertico-mode))
+                                 (not (bound-and-true-p icomplete-mode)))
+                        (minibuffer-completion-help))))
+                (or (completing-read (format "Correct ‘%s’%s: " word (or info ""))
+                                     (jinx--suggestion-table word)
+                                     nil nil nil t word)
+                    word))))))
     (if (string-match-p "\\`[@#*]" selected)
         (let* ((new-word (replace-regexp-in-string "\\`[@#*]+" "" selected))
                (idx (- (length selected) (length new-word) 1)))
