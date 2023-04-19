@@ -47,9 +47,39 @@ Jinx requires =libenchant=. Enchant library is a required dependency for Jinx to
 compile its module at install time. If =pkg-config= is available when installing
 Jinx, Jinx will use =pkg-config= to locate =libenchant=.
 
-On Debian or Ubuntu, install the packages =libenchant-2-dev= and =pkg-config=. On
-Fedora or RHEL, install the package =enchant2-devel=. On Mac, install =enchant2= and
-=pkgconfig=.
+** Debian / Ubuntu
+
+- Install =libenchant-2-dev= and =pkg-config=.
+
+** Fedora / RHEL
+
+- Linux: install =enchant2-devel=.
+- Mac: install =enchant2= and =pkgconfig=.
+
+** Nix / NixOS
+
+- Nix-based solution: (without Home-Manager)
+
+#+begin_src nix
+environment.systemPackages = with pkgs; [
+  emacs.pkgs.withPackages (epkgs: (with epkgs.elpaPackages; [
+    # ... <- your other emacs-nix packages
+    jinx
+  ]))
+];
+#+end_src
+
+- Alternative, [[https://nix-community.github.io/home-manager/options.html#opt-programs.emacs.enable][Home-Manager]] solution:
+
+#+begin_src nix
+programs.emacs = {
+  enable = true;
+  extraPackages = epkgs: with epkgs; [
+    # ... <- your other emacs-nix packages
+    jinx
+  ];
+};
+#+end_src
 
 * Using Jinx
 
