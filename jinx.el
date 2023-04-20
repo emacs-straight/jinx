@@ -4,11 +4,13 @@
 
 ;; Author: Daniel Mendler <mail@daniel-mendler.de>
 ;; Maintainer: Daniel Mendler <mail@daniel-mendler.de>
-;; Package-Requires: ((emacs "27.1") (compat "29.1.4.0"))
 ;; Created: 2023
 ;; Version: 0.6
+;; Package-Requires: ((emacs "27.1") (compat "29.1.4.0"))
 ;; Homepage: https://github.com/minad/jinx
 ;; Keywords: convenience, wp
+
+;; This file is part of GNU Emacs.
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -30,9 +32,9 @@
 ;; the buffer.  For efficiency, Jinx highlights misspellings lazily,
 ;; recognizes window boundaries and text folding, if any.  For
 ;; example, when unfolding or scrolling, only the newly visible part
-;; of the text is checked, if it has not been checked before.  Each
-;; misspelling can then be corrected from a list of dictionary words
-;; presented as completion candidates in a list.
+;; of the text is checked if it has not been checked before.  Each
+;; misspelling can be corrected from a list of dictionary words
+;; presented as a completion menu.
 
 ;; Installing Jinx is straight-forward and configuring takes not much
 ;; intervention.  Jinx can safely co-exist with Emacs's built-in
@@ -188,6 +190,15 @@ checking."
 (defvar-keymap jinx-mode-map
   :doc "Keymap used when Jinx is active.")
 
+(defvar-keymap jinx-correct-map
+  :doc "Keymap active in the correction minibuffer."
+  "SPC" #'self-insert-command
+  "M-n" #'jinx-correct-next
+  "M-p" #'jinx-correct-previous
+  "M-$" #'jinx-correct-next)
+(dotimes (i 9)
+  (define-key jinx-correct-map (vector (+ ?1 i)) #'jinx-correct-select))
+
 (easy-menu-define jinx-mode-menu jinx-mode-map
   "Menu used when Jinx is active."
   '("Jinx"
@@ -310,15 +321,16 @@ FLAG must be t or nil."
 (defun jinx--check-pending (start end)
   "Check pending visible region between START and END."
   (let ((pos start)
-        (skip (and (symbolp real-last-command)
-                   (string-match-p "self-insert-command\\'"
-                                   (symbol-name real-last-command))
-                   (point))))
+        (retry (and (eq (window-buffer) (current-buffer))
+                    (symbolp real-last-command)
+                    (string-match-p "self-insert-command\\'"
+                                    (symbol-name real-last-command))
+                    (window-point))))
     (while (< pos end)
       (let* ((from (jinx--find-visible-pending pos end t))
              (to (jinx--find-visible-pending from end nil)))
         (if (< from to)
-            (setq pos (jinx--check-region from to skip))
+            (setq pos (jinx--check-region from to retry))
           (setq pos to))))))
 
 (defun jinx--force-check-region (start end)
@@ -469,41 +481,89 @@ If VISIBLE is non-nil, only include visible overlays."
   (unless (fboundp #'jinx--mod-dict)
     (unless module-file-suffix
       (error "Jinx: Dynamic modules are not supported"))
-    (let ((default-directory
-           (file-name-directory (locate-library "jinx.el" t)))
-          (module (file-name-with-extension "jinx-mod" module-file-suffix)))
-      (unless (file-exists-p module)
-        (let ((command
-               `("cc" "-I." "-O2" "-Wall" "-Wextra" "-fPIC" "-shared"
-                 "-o" ,module ,(file-name-with-extension module ".c")
-                 ,@(split-string-and-unquote
-                    (condition-case nil
-                        (car (process-lines "pkg-config" "--cflags" "--libs" "enchant-2"))
-                      (error "-I/usr/include/enchant-2 -lenchant-2"))))))
+    (let* ((mod-name (file-name-with-extension "jinx-mod" module-file-suffix))
+           (mod-file (locate-library mod-name t)))
+      (unless mod-file
+        (let* ((c-name (file-name-with-extension mod-name ".c"))
+               (default-directory (file-name-directory
+                                   (or (locate-library c-name t)
+                                       (error "Jinx: %s not found" c-name))))
+               (command
+                `("cc" "-I." "-O2" "-Wall" "-Wextra" "-fPIC" "-shared"
+                  "-o" ,mod-name ,c-name
+                  ,@(split-string-and-unquote
+                     (condition-case nil
+                         (car (process-lines "pkg-config" "--cflags" "--libs" "enchant-2"))
+                       (error "-I/usr/include/enchant-2 -lenchant-2"))))))
           (with-current-buffer (get-buffer-create "*jinx module compilation*")
             (let ((inhibit-read-only t))
               (erase-buffer)
               (compilation-mode)
               (insert (string-join command " ") "\n")
               (if (equal 0 (apply #'call-process (car command) nil (current-buffer) t (cdr command)))
-                  (insert (message "Jinx: %s compiled successfully" module))
-                (let ((msg (format "Jinx: Compilation of %s failed" module)))
+                  (insert (message "Jinx: %s compiled successfully" mod-name))
+                (let ((msg (format "Jinx: Compilation of %s failed" mod-name)))
                   (insert msg)
                   (pop-to-buffer (current-buffer))
-                  (error msg)))))))
-      (module-load (expand-file-name module)))))
+                  (error msg)))))
+          (setq mod-file (expand-file-name mod-name))))
+      (module-load mod-file))))
 
-(defun jinx--annotate-suggestion (word)
-  "Annotate WORD during completion."
-  (get-text-property 0 'jinx--annotation word))
+(defun jinx--correct-highlight (overlay fun)
+  "Highlight and show OVERLAY during FUN."
+  (declare (indent 1))
+  (let (restore)
+    (goto-char (overlay-end overlay))
+    (unwind-protect
+        (progn
+          (if (and (derived-mode-p #'org-mode)
+                   (fboundp 'org-fold-show-set-visibility))
+              (let ((regions (delq nil (org-fold-core-get-regions
+                                        :with-markers t :from (point-min) :to (point-max)))))
+                (org-fold-show-set-visibility 'canonical)
+                (push (lambda ()
+                        (cl-loop for (beg end spec) in regions do
+                                 (org-fold-core-region beg end t spec)))
+                      restore))
+            (dolist (ov (overlays-in (pos-bol) (pos-eol)))
+              (let ((inv (overlay-get ov 'invisible)))
+                (when (and (invisible-p inv) (overlay-get ov 'isearch-open-invisible))
+                  (push (if-let (fun (overlay-get ov 'isearch-open-invisible-temporary))
+                            (progn
+                              (funcall fun ov nil)
+                              (lambda () (funcall fun ov t)))
+                          (overlay-put ov 'invisible nil)
+                          (lambda () (overlay-put ov 'invisible inv)))
+                        restore)))))
+          (let ((hl (make-overlay (overlay-start overlay) (overlay-end overlay))))
+            (overlay-put hl 'face 'jinx-highlight)
+            (overlay-put hl 'window (selected-window))
+            (push (lambda () (delete-overlay hl)) restore))
+          (funcall fun))
+      (mapc #'funcall restore))))
 
-(defun jinx--group-suggestion (word transform)
-  "Group WORD during completion, TRANSFORM candidate if non-nil."
-  (if transform
-      word
-    (get-text-property 0 'jinx--group word)))
+(defun jinx--recheck-overlays ()
+  "Recheck all overlays in buffer after a dictionary update."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (dolist (ov (overlays-in (point-min) (point-max)))
+        (when (eq (overlay-get ov 'category) 'jinx)
+          (goto-char (overlay-end ov))
+          (when (jinx--word-valid-p (overlay-start ov))
+            (delete-overlay ov)))))))
 
-(defun jinx--suggestions (word)
+(defun jinx--correct-setup ()
+  "Setup minibuffer for correction."
+  (let ((message-log-max nil)
+        (inhibit-message t))
+    (use-local-map (make-composed-keymap (list jinx-correct-map) (current-local-map)))
+    (when (and (eq completing-read-function #'completing-read-default)
+               (not (bound-and-true-p vertico-mode))
+               (not (bound-and-true-p icomplete-mode)))
+      (minibuffer-completion-help))))
+
+(defun jinx--correct-suggestions (word)
   "Retrieve suggestions for WORD."
   (delete-dups
    (nconc
@@ -537,107 +597,53 @@ If VISIBLE is non-nil, only include visible overlays."
      (propertize (concat #("*" 0 1 (face jinx-accept rear-nonsticky t)) word)
                  'jinx--group "Accept and save word"
                  'jinx--annotation " [File]")
-     (propertize (concat #("#" 0 1 (face jinx-accept rear-nonsticky t)) word)
+     (propertize (concat #("+" 0 1 (face jinx-accept rear-nonsticky t)) word)
                  'jinx--group "Accept and save word"
                  'jinx--annotation " [Session]")))))
 
-(defun jinx--suggestion-table (word)
+(defun jinx--correct-annotation (word)
+  "Annotate WORD during completion."
+  (get-text-property 0 'jinx--annotation word))
+
+(defun jinx--correct-group (word transform)
+  "Group WORD during completion, TRANSFORM candidate if non-nil."
+  (if transform
+      word
+    (get-text-property 0 'jinx--group word)))
+
+(defun jinx--correct-table (word)
   "Completion table for WORD suggestions."
-  (setq word (jinx--suggestions word))
+  (setq word (jinx--correct-suggestions word))
   (lambda (str pred action)
     (if (eq action 'metadata)
         '(metadata (display-sort-function . identity)
                    (cycle-sort-function . identity)
                    (category . jinx)
-                   (group-function . jinx--group-suggestion)
-                   (annotation-function . jinx--annotate-suggestion))
+                   (group-function . jinx--correct-group)
+                   (annotation-function . jinx--correct-annotation))
       (complete-with-action action word str pred))))
 
-(defun jinx--with-highlight (overlay recenter fun)
-  "Highlight and show OVERLAY during FUN, optionally RECENTER."
-  (declare (indent 2))
-  (let (restore)
-    (goto-char (overlay-end overlay))
-    (unwind-protect
-        (progn
-          (if (and (derived-mode-p #'org-mode)
-                   (fboundp 'org-fold-show-set-visibility))
-              (let ((regions (delq nil (org-fold-core-get-regions
-                                        :with-markers t :from (point-min) :to (point-max)))))
-                (org-fold-show-set-visibility 'canonical)
-                (push (lambda ()
-                        (cl-loop for (beg end spec) in regions do
-                                 (org-fold-core-region beg end t spec)))
-                      restore))
-            (dolist (ov (overlays-in (pos-bol) (pos-eol)))
-              (let ((inv (overlay-get ov 'invisible)))
-                (when (and (invisible-p inv) (overlay-get ov 'isearch-open-invisible))
-                  (push (if-let (fun (overlay-get ov 'isearch-open-invisible-temporary))
-                            (progn
-                              (funcall fun ov nil)
-                              (lambda () (funcall fun ov t)))
-                          (overlay-put ov 'invisible nil)
-                          (lambda () (overlay-put ov 'invisible inv)))
-                        restore)))))
-          (when recenter (recenter))
-          (let ((hl (make-overlay (overlay-start overlay) (overlay-end overlay))))
-            (overlay-put hl 'face 'jinx-highlight)
-            (overlay-put hl 'window (selected-window))
-            (push (lambda () (delete-overlay hl)) restore))
-          (funcall fun))
-      (mapc #'funcall restore))))
-
-(defun jinx--recheck-overlays ()
-  "Recheck all overlays in buffer after a dictionary update."
-  (save-excursion
-    (save-restriction
-      (widen)
-      (dolist (ov (overlays-in (point-min) (point-max)))
-        (when (eq (overlay-get ov 'category) 'jinx)
-          (goto-char (overlay-end ov))
-          (when (jinx--word-valid-p (overlay-start ov))
-            (delete-overlay ov)))))))
-
-(defun jinx--correct-select ()
-  "Quick selection key for corrections."
-  (interactive)
-  (let ((word (nth (- last-input-event ?1)
-                   (all-completions "" minibuffer-completion-table))))
-    (when (and word (not (string-match-p "\\`[@#*]" word)))
-      (delete-minibuffer-contents)
-      (insert word)
-      (exit-minibuffer))))
-
-(defun jinx--correct (overlay &optional recenter info)
-  "Correct word at OVERLAY with optional RECENTER and prompt INFO."
+(defun jinx--correct (overlay recenter info)
+  "Correct word at OVERLAY, maybe RECENTER and show prompt INFO."
   (let* ((word (buffer-substring-no-properties
                 (overlay-start overlay) (overlay-end overlay)))
          (selected
-          (jinx--with-highlight overlay recenter
+          (jinx--correct-highlight overlay
             (lambda ()
+              (when recenter (recenter))
               (minibuffer-with-setup-hook
-                  (lambda ()
-                    (let ((message-log-max nil)
-                          (inhibit-message t)
-                          (map (define-keymap :parent (current-local-map)
-                                 "SPC" #'self-insert-command)))
-                      (dotimes (i 9)
-                        (define-key map (vector (+ ?1 i)) #'jinx--correct-select))
-                      (use-local-map map)
-                      (when (and (eq completing-read-function #'completing-read-default)
-                                 (not (bound-and-true-p vertico-mode))
-                                 (not (bound-and-true-p icomplete-mode)))
-                        (minibuffer-completion-help))))
-                (or (completing-read (format "Correct ‘%s’%s: " word (or info ""))
-                                     (jinx--suggestion-table word)
-                                     nil nil nil t word)
+                  #'jinx--correct-setup
+                (or (completing-read
+                     (format "Correct ‘%s’%s: " word (or info ""))
+                     (jinx--correct-table word)
+                     nil nil nil t word)
                     word))))))
-    (if (string-match-p "\\`[@#*]" selected)
-        (let* ((new-word (replace-regexp-in-string "\\`[@#*]+" "" selected))
+    (if (string-match-p "\\`[@+*]" selected)
+        (let* ((new-word (replace-regexp-in-string "\\`[@+*]+" "" selected))
                (idx (- (length selected) (length new-word) 1)))
           (when (equal new-word "") (setq new-word word))
           (cond
-           ((string-prefix-p "#" selected)
+           ((string-prefix-p "+" selected)
             (add-to-list 'jinx--session-words new-word))
            ((string-prefix-p "*" selected)
             (add-to-list 'jinx--session-words new-word)
@@ -655,6 +661,7 @@ If VISIBLE is non-nil, only include visible overlays."
       (when-let (((not (equal selected word)))
                  (start (overlay-start overlay))
                  (end (overlay-end overlay)))
+        (undo-boundary)
         (delete-overlay overlay)
         (goto-char end)
         (insert-before-markers selected)
@@ -709,25 +716,54 @@ If prefix argument ALL non-nil correct all misspellings."
   (cl-letf (((symbol-function #'jinx--timer-handler) #'ignore) ;; Inhibit
             (old-point (and (not all) (point-marker))))
     (unwind-protect
-        (if (not all)
-            (jinx--correct
-             (or (car (jinx--get-overlays (window-start) (window-end) 'visible))
-                 (progn
-                   (jinx--force-check-region (window-start) (window-end))
-                   (car (jinx--get-overlays (window-start) (window-end) 'visible)))
-                 (user-error "No misspelling in visible text")))
-          (push-mark)
-          (jinx--force-check-region (point-min) (point-max))
-          (let* ((overlays (or (jinx--get-overlays (point-min) (point-max))
-                               (user-error "No misspellings in whole buffer")))
-                 (count (length overlays)))
-            (cl-loop for ov in overlays for idx from 1
-                     if (overlay-buffer ov) do ;; Could be already deleted
-                     (jinx--correct ov 'recenter
-                                    (format " (%d of %d, RET to skip)"
-                                            idx count)))))
+          (let* ((overlays
+                  (if all
+                      (progn
+                        (jinx--force-check-region (point-min) (point-max))
+                        (or (jinx--get-overlays (point-min) (point-max))
+                            (user-error "No misspellings in whole buffer")))
+                    (or (jinx--get-overlays (window-start) (window-end) 'visible)
+                        (progn
+                          (jinx--force-check-region (window-start) (window-end))
+                          (jinx--get-overlays (window-start) (window-end) 'visible))
+                        (user-error "No misspelling in visible text"))))
+                 (count (length overlays))
+                 (idx 0))
+            (when all
+              (push-mark))
+            (while (when-let ((ov (nth idx overlays)))
+                     (let* ((deleted (not (overlay-buffer ov)))
+                            (skip
+                             (catch 'jinx--correct
+                               (unless deleted
+                                 (jinx--correct
+                                  ov all
+                                  (and all (format " (%d of %d)" (1+ idx) count)))))))
+                       (cond
+                        ((integerp skip) (setq idx (mod (+ idx skip) count)))
+                        ((or all deleted) (cl-incf idx)))))))
       (when old-point (goto-char old-point))
       (jit-lock-refontify))))
+
+(defun jinx-correct-select ()
+  "Quick selection key for corrections."
+  (interactive)
+  (let ((word (nth (- last-input-event ?1)
+                   (all-completions "" minibuffer-completion-table))))
+    (when (and word (not (string-match-p "\\`[@+*]" word)))
+      (delete-minibuffer-contents)
+      (insert word)
+      (exit-minibuffer))))
+
+(defun jinx-correct-next (n)
+  "Skip to Nth next misspelling."
+  (interactive "p")
+  (throw 'jinx--correct n))
+
+(defun jinx-correct-previous (n)
+  "Skip to Nth previous misspelling."
+  (interactive "p")
+  (throw 'jinx--correct (- n)))
 
 ;;;###autoload
 (define-minor-mode jinx-mode
