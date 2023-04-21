@@ -335,9 +335,11 @@ FLAG must be t or nil."
 
 (defun jinx--force-check-region (start end)
   "Enforce spell-check of region between START and END."
-  (with-delayed-message (1 "Fontifying...")
+  ;; FIXME `with-delayed-message' is broken in combination with
+  ;; `inhibit-message'. Report this as a bug.
+  (progn ;; with-delayed-message (1 "Fontifying...")
     (jit-lock-fontify-now))
-  (with-delayed-message (1 "Checking...")
+  (progn ;; with-delayed-message (1 "Checking...")
     (jinx--check-region start end)))
 
 (defun jinx--check-region (start end &optional retry)
@@ -702,8 +704,11 @@ With prefix argument GLOBAL non-nil change the languages globally."
       (setq-default jinx-languages langs))
      (t
       (setq-local jinx-languages langs)
-      (when (y-or-n-p "Save `jinx-languages' as file-local variable? ")
-        (add-file-local-variable 'jinx-languages jinx-languages))))
+      (when (or (assq 'jinx-languages file-local-variables-alist)
+                (and buffer-file-name
+                     (y-or-n-p "Save `jinx-languages' as file-local variable? ")))
+        (add-file-local-variable 'jinx-languages jinx-languages)
+        (setf (alist-get 'jinx-languages file-local-variables-alist) jinx-languages))))
     (jinx--load-dicts)
     (jinx--cleanup)))
 
@@ -768,7 +773,7 @@ If prefix argument ALL non-nil correct all misspellings."
 ;;;###autoload
 (define-minor-mode jinx-mode
   "Enchanted Spell Checker."
-  :lighter (" Jinx[" jinx-languages "]")
+  :lighter (:eval (concat " Jinx[" jinx-languages "]"))
   :group 'jinx
   :keymap jinx-mode-map
   (cond
