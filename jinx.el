@@ -5,7 +5,7 @@
 ;; Author: Daniel Mendler <mail@daniel-mendler.de>
 ;; Maintainer: Daniel Mendler <mail@daniel-mendler.de>
 ;; Created: 2023
-;; Version: 0.7
+;; Version: 0.8
 ;; Package-Requires: ((emacs "27.1") (compat "29.1.4.0"))
 ;; Homepage: https://github.com/minad/jinx
 ;; Keywords: convenience, wp
@@ -36,9 +36,9 @@
 ;; misspelling can be corrected from a list of dictionary words
 ;; presented as a completion menu.
 
-;; Installing Jinx is straight-forward and configuring takes not much
-;; intervention.  Jinx can safely co-exist with Emacs's built-in
-;; spell-checker.
+;; Installing Jinx is straight-forward and configuring should not need
+;; much intervention.  Jinx can be used completely on its own, but can
+;; also safely co-exist with Emacs's built-in spell-checker Ispell.
 
 ;; Jinx's high performance and low resource usage comes from directly
 ;; calling the widely-used API of the Enchant library (see
@@ -200,7 +200,10 @@ checking."
 
 (defvar-keymap jinx-misspelled-map
   :doc "Keymap attached to misspelled words."
-  "<mouse-1>" #'jinx-correct)
+  "<mouse-1>" #'jinx-correct
+  "M-n" #'jinx-next
+  "M-p" #'jinx-previous
+  "M-$" #'jinx-correct)
 
 (fset 'jinx-misspelled-map jinx-misspelled-map)
 
@@ -210,9 +213,9 @@ checking."
 (defvar-keymap jinx-correct-map
   :doc "Keymap active in the correction minibuffer."
   "SPC" #'self-insert-command
-  "M-n" #'jinx-correct-next
-  "M-p" #'jinx-correct-previous
-  "M-$" #'jinx-correct-previous
+  "M-n" #'jinx-next
+  "M-p" #'jinx-previous
+  "M-$" #'jinx-previous
   "0 <t>" #'jinx-correct-select)
 (dotimes (i 9)
   (define-key jinx-correct-map (vector (+ ?1 i)) #'jinx-correct-select))
@@ -242,6 +245,28 @@ Predicate may return a position to skip forward.")
 (defvar jinx--timer nil
   "Global timer to check pending regions.")
 
+(defvar jinx--base-syntax-table
+  (let ((st (make-syntax-table)))
+    (modify-syntax-entry ?$ "_" st)
+    (modify-syntax-entry ?% "_" st)
+    (modify-syntax-entry '(#x80 . #x9f) "_" st)        ;; Control characters
+    (modify-syntax-entry '(#x2150 . #x2bff) "_" st)    ;; Number Forms - Misc. Arrows
+    (modify-syntax-entry '(#xfe00 . #xfe0f) "_" st)    ;; Variation Selectors
+    (modify-syntax-entry '(#x1cf00 . #x1d7ff) "_" st)  ;; Znamenny Musical - Math. Alpha.
+    (modify-syntax-entry '(#x1ee00 . #x1fbff) "_" st)  ;; Arabic Math. - Legacy Computing
+    st)
+  "Base syntax table for spell checking.")
+
+(defvar jinx--select-keys
+  "123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  "Quick select keys used by `jinx-correct'.")
+
+(defvar jinx--save-keys
+  `((?@ . ,#'jinx--save-personal)
+    (?* . ,#'jinx--save-file)
+    (?+ . ,#'jinx--save-session))
+  "Keys for save actions used by `jinx-correct'.")
+
 (defvar-local jinx--exclude-faces nil
   "List of excluded faces.")
 
@@ -262,16 +287,6 @@ Predicate may return a position to skip forward.")
 
 (defvar-local jinx--session-words nil
   "List of words accepted in this session.")
-
-(defvar jinx--select-keys
-  "123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  "Quick select keys used by `jinx-correct'.")
-
-(defvar jinx--save-keys
-  `((?@ . ,#'jinx--save-personal)
-    (?* . ,#'jinx--save-file)
-    (?+ . ,#'jinx--save-session))
-  "Keys for save actions used by `jinx-correct'.")
 
 ;;;; Declarations for the bytecode compiler
 
@@ -361,15 +376,6 @@ FLAG must be t or nil."
             (setq pos (jinx--check-region from to retry))
           (setq pos to))))))
 
-(defun jinx--force-check-region (start end)
-  "Enforce spell-check of region between START and END."
-  ;; FIXME `with-delayed-message' is broken in combination with
-  ;; `inhibit-message'. Report this as a bug.
-  (progn ;; with-delayed-message (1 "Fontifying...")
-    (jit-lock-fontify-now))
-  (progn ;; with-delayed-message (1 "Checking...")
-    (jinx--check-region start end)))
-
 (defun jinx--check-region (start end &optional retry)
   "Check region between START and END.
 Optionally RETRY word at given position.  Return updated END
@@ -440,6 +446,22 @@ If VISIBLE is non-nil, only include visible overlays."
     (while (and (cdr overlays) (<= (overlay-start (cadr overlays)) pt))
       (push (pop overlays) before))
     (nconc overlays (nreverse before))))
+
+(cl-defun jinx--force-overlays (start end &key visible check)
+  "Return misspelled word overlays between START and END, enforce checking.
+If VISIBLE is non-nil, only include visible overlays.
+If CHECK is non-nil, always check first."
+  (or (and (not check) (jinx--get-overlays start end visible))
+      (progn
+        ;; FIXME `with-delayed-message' is broken in combination with
+        ;; `inhibit-message'. Report this as a bug.
+        (progn ;; with-delayed-message (1 "Fontifying...")
+          (jit-lock-fontify-now))
+        (progn ;; with-delayed-message (1 "Checking...")
+          (jinx--check-region start end))
+        (jinx--get-overlays start end visible))
+      (user-error (if visible "No misspelling in visible text"
+                    "No misspelling in whole buffer"))))
 
 (defun jinx--delete-overlays (start end)
   "Delete overlays between START and END."
@@ -512,12 +534,15 @@ If VISIBLE is non-nil, only include visible overlays."
     (let* ((mod-name (file-name-with-extension "jinx-mod" module-file-suffix))
            (mod-file (locate-library mod-name t)))
       (unless mod-file
-        (let* ((c-name (file-name-with-extension mod-name ".c"))
+        (let* ((cc (or (getenv "CC")
+                       (seq-find #'executable-find '("gcc" "clang" "cc"))
+                       (error "Jinx: No C compiler found")))
+               (c-name (file-name-with-extension mod-name ".c"))
                (default-directory (file-name-directory
                                    (or (locate-library c-name t)
                                        (error "Jinx: %s not found" c-name))))
                (command
-                `("cc" "-I." "-O2" "-Wall" "-Wextra" "-fPIC" "-shared"
+                `(,cc "-I." "-O2" "-Wall" "-Wextra" "-fPIC" "-shared"
                   "-o" ,mod-name ,c-name
                   ,@(split-string-and-unquote
                      (condition-case nil
@@ -685,14 +710,12 @@ If VISIBLE is non-nil, only include visible overlays."
   "Load dictionaries and setup syntax table."
   (setq jinx--dicts (delq nil (mapcar #'jinx--mod-dict
                                       (split-string jinx-languages)))
-        jinx--syntax-table (make-syntax-table))
+        jinx--syntax-table (make-syntax-table jinx--base-syntax-table))
   (unless jinx--dicts
     (message "Jinx: No dictionaries available for %S" jinx-languages))
   (dolist (dict jinx--dicts)
     (cl-loop for c across (jinx--mod-wordchars dict) do
              (modify-syntax-entry c "w" jinx--syntax-table)))
-  (modify-syntax-entry ?$ "_" jinx--syntax-table)
-  (modify-syntax-entry ?% "_" jinx--syntax-table)
   (modify-syntax-entry ?' "w" jinx--syntax-table)
   (modify-syntax-entry ?. "." jinx--syntax-table))
 
@@ -748,30 +771,34 @@ If SAVE is non-nil save, otherwise format candidate given action KEY."
 ;;;; Public commands
 
 ;;;###autoload
-(defun jinx-languages (&optional global)
-  "Change languages locally or globally.
-With prefix argument GLOBAL non-nil change the languages globally."
-  (interactive "*P")
-  (jinx--load-module)
-  (when-let ((langs
-              (completing-read-multiple
-               (format "Change languages (%s): "
-                       (string-join (split-string jinx-languages) ", "))
-               (delete-dups (jinx--mod-langs)) nil t)))
-    (setq langs (string-join langs " "))
-    (cond
-     (global
-      (kill-local-variable 'jinx-languages)
-      (setq-default jinx-languages langs))
-     (t
-      (setq-local jinx-languages langs)
-      (when (or (assq 'jinx-languages file-local-variables-alist)
-                (and buffer-file-name
-                     (y-or-n-p "Save `jinx-languages' as file-local variable? ")))
-        (add-file-local-variable 'jinx-languages jinx-languages)
-        (setf (alist-get 'jinx-languages file-local-variables-alist) jinx-languages))))
-    (jinx--load-dicts)
-    (jinx--cleanup)))
+(defun jinx-languages (langs &optional global)
+  "Set languages locally or globally to LANGS.
+With prefix argument GLOBAL change the languages globally."
+  (interactive
+   (list
+    (progn
+      (jinx--load-module)
+      (string-join
+       (or (completing-read-multiple
+            (format "Change languages (%s): "
+                    (string-join (split-string jinx-languages) ", "))
+            (delete-dups (jinx--mod-langs)) nil t)
+           (user-error "No languages selected"))
+       " "))
+    current-prefix-arg))
+  (cond
+   (global
+    (kill-local-variable 'jinx-languages)
+    (setq-default jinx-languages langs))
+   (t
+    (setq-local jinx-languages langs)
+    (when (or (assq 'jinx-languages file-local-variables-alist)
+              (and buffer-file-name
+                   (y-or-n-p "Save `jinx-languages' as file-local variable? ")))
+      (add-file-local-variable 'jinx-languages jinx-languages)
+      (setf (alist-get 'jinx-languages file-local-variables-alist) jinx-languages))))
+  (jinx--load-dicts)
+  (jinx--cleanup))
 
 ;;;###autoload
 (defun jinx-correct (&optional all)
@@ -784,15 +811,8 @@ If prefix argument ALL non-nil correct all misspellings."
     (unwind-protect
           (let* ((overlays
                   (if all
-                      (progn
-                        (jinx--force-check-region (point-min) (point-max))
-                        (or (jinx--get-overlays (point-min) (point-max))
-                            (user-error "No misspellings in whole buffer")))
-                    (or (jinx--get-overlays (window-start) (window-end) 'visible)
-                        (progn
-                          (jinx--force-check-region (window-start) (window-end))
-                          (jinx--get-overlays (window-start) (window-end) 'visible))
-                        (user-error "No misspelling in visible text"))))
+                      (jinx--force-overlays (point-min) (point-max) :check t)
+                    (jinx--force-overlays (window-start) (window-end) :visible t)))
                  (count (length overlays))
                  (idx 0))
             (when all
@@ -800,7 +820,7 @@ If prefix argument ALL non-nil correct all misspellings."
             (while (when-let ((ov (nth idx overlays)))
                      (let* ((deleted (not (overlay-buffer ov)))
                             (skip
-                             (catch 'jinx--correct
+                             (catch 'jinx--goto
                                (unless deleted
                                  (jinx--correct
                                   ov all
@@ -825,15 +845,21 @@ If prefix argument ALL non-nil correct all misspellings."
     (insert word)
     (exit-minibuffer)))
 
-(defun jinx-correct-next (n)
-  "Skip to Nth next misspelling."
+(defun jinx-next (n)
+  "Go to to Nth next misspelling."
   (interactive "p")
-  (throw 'jinx--correct n))
+  (unless (= n 0)
+    (if (minibufferp)
+        (throw 'jinx--goto n)
+      (let ((ov (jinx--force-overlays (point-min) (point-max))))
+        (unless (or (> n 0) (<= (overlay-start (car ov)) (point) (overlay-end (car ov))))
+          (cl-incf n))
+        (goto-char (overlay-end (nth (mod n (length ov)) ov)))))))
 
-(defun jinx-correct-previous (n)
-  "Skip to Nth previous misspelling."
+(defun jinx-previous (n)
+  "Go to to Nth previous misspelling."
   (interactive "p")
-  (throw 'jinx--correct (- n)))
+  (jinx-next (- n)))
 
 ;;;###autoload
 (define-minor-mode jinx-mode

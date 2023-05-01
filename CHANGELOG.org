@@ -4,11 +4,21 @@
 
 * Development
 
+- Rename =jinx-correct-next/previous= to =jinx-next/previous=. The commands can be
+  used outside the minibuffer.
+- Bind =M-n= and =M-p= to =jinx-next/previous= in =jinx-misspelled-map=.
+- Bind =M-$= to =jinx-correct= in the =jinx-misspelled-map=.
+- 🪄 Make sure that Emojis are not marked as misspelled 🧙🏼‍♀️.
+
+* Version 0.8 (2023-04-28)
+
 - =jinx-correct=: Consistently move backward to the previous misspelling. In order
   to move backward further, press =M-$= again (or =M-p=). Move forward with =M-n=.
 - =jinx-correct-select=: Support more than 10 quick keys.
+- =jinx-languages=: New argument =LANGS=.
 - Add =jinx-faces= customization group.
 - Add configurable save actions via =jinx--save-keys=.
+- Detect C compiler via $CC or =executable-find=.
 
 * Version 0.7 (2023-04-21)
 
