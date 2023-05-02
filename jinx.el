@@ -198,17 +198,23 @@ checking."
 
 ;;;; Keymaps
 
-(defvar-keymap jinx-misspelled-map
+(defvar-keymap jinx-overlay-map
   :doc "Keymap attached to misspelled words."
   "<mouse-1>" #'jinx-correct
   "M-n" #'jinx-next
   "M-p" #'jinx-previous
   "M-$" #'jinx-correct)
 
-(fset 'jinx-misspelled-map jinx-misspelled-map)
+(fset 'jinx-overlay-map jinx-overlay-map)
 
-(defvar-keymap jinx-mode-map
-  :doc "Keymap used when Jinx is active.")
+(defvar-keymap jinx-repeat-map
+  :doc "Repeat keymap for navigation commands."
+  :repeat (:exit (jinx-correct))
+  "M-n" #'jinx-next
+  "M-p" #'jinx-previous
+  "n" #'jinx-next
+  "p" #'jinx-previous
+  "$" #'jinx-correct)
 
 (defvar-keymap jinx-correct-map
   :doc "Keymap active in the correction minibuffer."
@@ -219,6 +225,9 @@ checking."
   "0 <t>" #'jinx-correct-select)
 (dotimes (i 9)
   (define-key jinx-correct-map (vector (+ ?1 i)) #'jinx-correct-select))
+
+(defvar-keymap jinx-mode-map
+  :doc "Keymap used when Jinx is active.")
 
 (easy-menu-define jinx-mode-menu jinx-mode-map
   "Menu used when Jinx is active."
@@ -303,13 +312,13 @@ Predicate may return a position to skip forward.")
 
 ;;;; Overlay properties
 
-(put 'jinx 'evaporate             t)
-(put 'jinx 'face                  'jinx-misspelled)
-(put 'jinx 'mouse-face            '(jinx-misspelled jinx-highlight))
-(put 'jinx 'modification-hooks    (list #'jinx--overlay-modified))
-(put 'jinx 'insert-in-front-hooks (list #'jinx--overlay-modified))
-(put 'jinx 'insert-behind-hooks   (list #'jinx--overlay-modified))
-(put 'jinx 'keymap                'jinx-misspelled-map)
+(put 'jinx-overlay 'evaporate             t)
+(put 'jinx-overlay 'face                  'jinx-misspelled)
+(put 'jinx-overlay 'mouse-face            '(jinx-misspelled jinx-highlight))
+(put 'jinx-overlay 'modification-hooks    (list #'jinx--overlay-modified))
+(put 'jinx-overlay 'insert-in-front-hooks (list #'jinx--overlay-modified))
+(put 'jinx-overlay 'insert-behind-hooks   (list #'jinx--overlay-modified))
+(put 'jinx-overlay 'keymap                'jinx-overlay-map)
 
 ;;;; Predicates
 
@@ -424,7 +433,7 @@ position."
                         ('nil
                          (if (and retry (<= word-start retry subword-end))
                              (setq retry-start word-start retry-end subword-end retry nil)
-                           (overlay-put (make-overlay word-start subword-end) 'category 'jinx))))
+                           (overlay-put (make-overlay word-start subword-end) 'category 'jinx-overlay))))
                       (setq word-start subword-end)))))
               (remove-list-of-text-properties start end '(jinx--pending))
               (when retry-start
@@ -437,7 +446,7 @@ position."
 If VISIBLE is non-nil, only include visible overlays."
   (let ((pt (point)) before overlays)
     (dolist (ov (overlays-in start end))
-      (when (and (eq (overlay-get ov 'category) 'jinx)
+      (when (and (eq (overlay-get ov 'category) 'jinx-overlay)
                  (not (and visible (invisible-p (overlay-start ov)))))
         (push ov overlays)))
     (setq overlays
@@ -466,7 +475,7 @@ If CHECK is non-nil, always check first."
 (defun jinx--delete-overlays (start end)
   "Delete overlays between START and END."
   (dolist (ov (overlays-in start end))
-    (when (eq 'jinx (overlay-get ov 'category))
+    (when (eq (overlay-get ov 'category) 'jinx-overlay)
       (delete-overlay ov))))
 
 (defun jinx--cleanup ()
@@ -601,7 +610,7 @@ If CHECK is non-nil, always check first."
     (save-restriction
       (widen)
       (dolist (ov (overlays-in (point-min) (point-max)))
-        (when (eq (overlay-get ov 'category) 'jinx)
+        (when (eq (overlay-get ov 'category) 'jinx-overlay)
           (goto-char (overlay-end ov))
           (when (jinx--word-valid-p (overlay-start ov))
             (delete-overlay ov)))))))
@@ -807,6 +816,7 @@ If prefix argument ALL non-nil correct all misspellings."
   (interactive "*P")
   (unless jinx-mode (jinx-mode 1))
   (cl-letf (((symbol-function #'jinx--timer-handler) #'ignore) ;; Inhibit
+            (repeat-mode nil) ;; No repeating of jinx-next and jinx-previous
             (old-point (and (not all) (point-marker))))
     (unwind-protect
           (let* ((overlays
