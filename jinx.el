@@ -94,10 +94,11 @@ checking."
   :type '(alist :key-type symbol :value-type (repeat face)))
 
 (defcustom jinx-camel-modes
-  '(java-mode javascript-mode
-    java-ts-mode javascript-ts-mode
-    ruby-mode ruby-ts-mode
-    rust-mode rust-ts-mode)
+  '(java-mode javascript-mode java-ts-mode javascript-ts-mode ruby-mode
+    ruby-ts-mode rust-mode rust-ts-mode haskell-mode kotlin-mode swift-mode
+    csharp-mode csharp-ts-mode objc-mode typescript-ts-mode typescript-mode
+    python-mode python-ts-mode dart-mode go-mode go-ts-mode scala-mode
+    groovy-mode)
   "Modes where camelCase or PascalCase words should be accepted.
 Set to t to enable camelCase everywhere."
   :type '(choice (const t) (repeat symbol)))
@@ -106,20 +107,16 @@ Set to t to enable camelCase everywhere."
   '((markdown-mode
      markdown-code-face markdown-html-attr-name-face
      markdown-html-attr-value-face markdown-html-tag-name-face
-     markdown-inline-code-face markdown-link-face
-     markdown-markup-face markdown-plain-url-face
-     markdown-reference-face markdown-url-face)
+     markdown-inline-code-face markdown-link-face markdown-markup-face
+     markdown-plain-url-face markdown-reference-face markdown-url-face)
     (org-mode
-     org-block org-block-begin-line org-block-end-line
-     org-code org-cite org-cite-key org-date org-footnote
-     org-formula org-latex-and-related org-link org-meta-line
-     org-property-value org-ref-cite-face org-special-keyword
-     org-tag org-todo org-todo-keyword-done
-     org-todo-keyword-habt org-todo-keyword-kill
-     org-todo-keyword-outd org-todo-keyword-todo
-     org-todo-keyword-wait org-verbatim
-     org-modern-tag org-modern-date-active
-     org-modern-date-inactive)
+     org-block org-block-begin-line org-block-end-line org-code org-cite
+     org-cite-key org-date org-footnote org-formula org-latex-and-related
+     org-link org-meta-line org-property-value org-ref-cite-face
+     org-special-keyword org-tag org-todo org-todo-keyword-done
+     org-todo-keyword-habt org-todo-keyword-kill org-todo-keyword-outd
+     org-todo-keyword-todo org-todo-keyword-wait org-verbatim org-modern-tag
+     org-modern-date-active org-modern-date-inactive)
     (tex-mode
      tex-math font-latex-math-face font-latex-sedate-face
      font-latex-verbatim-face font-lock-function-name-face
@@ -128,14 +125,14 @@ Set to t to enable camelCase everywhere."
      font-lock-function-name-face font-lock-keyword-face
      font-lock-variable-name-face)
     (rst-mode
-     rst-literal rst-external rst-directive rst-definition
-     rst-reference)
+     rst-literal rst-external rst-directive rst-definition rst-reference)
     (sgml-mode
      font-lock-function-name-face font-lock-variable-name-face)
     (emacs-lisp-mode
      font-lock-constant-face font-lock-warning-face)
     (message-mode
-     message-header-name))
+     message-header-cc message-header-name message-header-newsgroups
+     message-header-other message-header-to message-header-xheader))
   "Alist of faces per major mode.
 These faces mark regions which should be excluded in spell
 checking."
@@ -185,7 +182,7 @@ checking."
   "Face used to highlight current misspelling during correction.")
 
 (defface jinx-save
-  '((t :inherit font-lock-builtin-face))
+  '((t :inherit font-lock-negation-char-face))
   "Face used for the save actions during correction.")
 
 (defface jinx-key
@@ -502,7 +499,7 @@ If CHECK is non-nil, always check first."
 (defun jinx--get-org-language ()
   "Get language from Org #+language keyword."
   (when (and (not (local-variable-p 'jinx-languages))
-             (derived-mode-p 'org-mode))
+             (derived-mode-p #'org-mode))
     (save-excursion
       (save-match-data
         (goto-char (point-min))
@@ -890,7 +887,7 @@ If prefix argument ALL non-nil correct all misspellings."
           jinx--include-faces (jinx--mode-list jinx-include-faces)
           jinx--exclude-faces (jinx--mode-list jinx-exclude-faces)
           jinx--camel (or (eq jinx-camel-modes t)
-                          (seq-some #'derived-mode-p jinx-camel-modes))
+                          (apply #'derived-mode-p jinx-camel-modes))
           jinx--session-words (split-string jinx-local-words))
     (jinx--load-dicts)
     (add-hook 'window-state-change-hook #'jinx--reschedule nil t)
@@ -916,7 +913,7 @@ If prefix argument ALL non-nil correct all misspellings."
   (when (and (not (or noninteractive
                       buffer-read-only
                       (eq (aref (buffer-name) 0) ?\s)))
-             (seq-some #'derived-mode-p jinx-include-modes))
+             (apply #'derived-mode-p jinx-include-modes))
     (jinx-mode 1)))
 
 (provide 'jinx)
