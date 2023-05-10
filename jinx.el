@@ -87,7 +87,13 @@
                font-lock-doc-face
                font-lock-string-face)
     (conf-mode font-lock-comment-face
-               font-lock-string-face))
+               font-lock-string-face)
+    ;; yaml-mode and yaml-ts-mode are text-modes,
+    ;; while they should better be conf- or prog-modes.
+    (yaml-mode font-lock-comment-face
+               font-lock-string-face)
+    (yaml-ts-mode font-lock-comment-face
+                  font-lock-string-face))
   "Alist of faces per major mode.
 These faces mark regions which should be included in spell
 checking."
@@ -295,6 +301,7 @@ Predicate may return a position to skip forward.")
 
 ;;;; Declarations for the bytecode compiler
 
+(defvar repeat-mode)
 (defvar jinx-mode)
 (declare-function jinx--mod-check nil)
 (declare-function jinx--mod-add nil)
@@ -348,6 +355,11 @@ Predicate may return a position to skip forward.")
                  thereis (jinx--mod-check dict word)))))
 
 ;;;; Internal functions
+
+(defun jinx--in-base-buffer (&rest app)
+  "Apply APP in `buffer-base-buffer', as required by `jit-lock' functions."
+  (with-current-buffer (or (buffer-base-buffer) (current-buffer))
+    (apply app)))
 
 (defun jinx--overlay-modified (overlay &rest _)
   "Delete modified OVERLAY.
@@ -458,12 +470,11 @@ If VISIBLE is non-nil, only include visible overlays.
 If CHECK is non-nil, always check first."
   (or (and (not check) (jinx--get-overlays start end visible))
       (progn
-        ;; FIXME `with-delayed-message' is broken in combination with
-        ;; `inhibit-message'. Report this as a bug.
-        (progn ;; with-delayed-message (1 "Fontifying...")
-          (jit-lock-fontify-now))
-        (progn ;; with-delayed-message (1 "Checking...")
-          (jinx--check-region start end))
+        (let (set-message-function) ;; bug#63253: Broken `with-delayed-message'
+          (with-delayed-message (1 "Fontifying...")
+            (jinx--in-base-buffer #'jit-lock-fontify-now))
+          (with-delayed-message (1 "Checking...")
+            (jinx--check-region start end)))
         (jinx--get-overlays start end visible))
       (user-error (if visible "No misspelling in visible text"
                     "No misspelling in whole buffer"))))
@@ -481,7 +492,7 @@ If CHECK is non-nil, always check first."
       (widen)
       (jinx--delete-overlays (point-min) (point-max))
       (remove-list-of-text-properties (point-min) (point-max) '(jinx--pending))
-      (jit-lock-refontify))))
+      (jinx--in-base-buffer #'jit-lock-refontify))))
 
 (defun jinx--mark-pending (start end)
   "Mark region between START and END as pending."
@@ -811,31 +822,31 @@ With prefix argument GLOBAL change the languages globally."
 If prefix argument ALL non-nil correct all misspellings."
   (interactive "*P")
   (unless jinx-mode (jinx-mode 1))
-  (cl-letf (((symbol-function #'jinx--timer-handler) #'ignore) ;; Inhibit
-            (repeat-mode nil) ;; No repeating of jinx-next and jinx-previous
-            (old-point (and (not all) (point-marker))))
+  (cl-letf* (((symbol-function #'jinx--timer-handler) #'ignore) ;; Inhibit
+             (repeat-mode nil) ;; No repeating of jinx-next and jinx-previous
+             (old-point (and (not all) (point-marker)))
+             (overlays
+              (if all
+                  (jinx--force-overlays (point-min) (point-max) :check t)
+                (jinx--force-overlays (window-start) (window-end) :visible t)))
+             (count (length overlays))
+             (idx 0))
+    (when all
+      (push-mark))
     (unwind-protect
-          (let* ((overlays
-                  (if all
-                      (jinx--force-overlays (point-min) (point-max) :check t)
-                    (jinx--force-overlays (window-start) (window-end) :visible t)))
-                 (count (length overlays))
-                 (idx 0))
-            (when all
-              (push-mark))
-            (while (when-let ((ov (nth idx overlays)))
-                     (let* ((deleted (not (overlay-buffer ov)))
-                            (skip
-                             (catch 'jinx--goto
-                               (unless deleted
-                                 (jinx--correct
-                                  ov all
-                                  (and all (format " (%d of %d)" (1+ idx) count)))))))
-                       (cond
-                        ((integerp skip) (setq idx (mod (+ idx skip) count)))
-                        ((or all deleted) (cl-incf idx)))))))
+        (while (when-let ((ov (nth idx overlays)))
+                 (let* ((deleted (not (overlay-buffer ov)))
+                        (skip
+                         (catch 'jinx--goto
+                           (unless deleted
+                             (jinx--correct
+                              ov all
+                              (and all (format " (%d of %d)" (1+ idx) count)))))))
+                   (cond
+                    ((integerp skip) (setq idx (mod (+ idx skip) count)))
+                    ((or all deleted) (cl-incf idx))))))
       (when old-point (goto-char old-point))
-      (jit-lock-refontify))))
+      (jinx--in-base-buffer #'jit-lock-refontify))))
 
 (defun jinx-correct-select ()
   "Quick selection key for corrections."
