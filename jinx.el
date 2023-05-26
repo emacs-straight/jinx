@@ -423,11 +423,11 @@ position."
                   ;; No quote or apostrophe at start or end
                   (while (and (< word-start word-end)
                               (let ((c (char-after word-start)))
-                                (or (= c 39) (= c 8217))))
+                                (or (= c ?') (= c ?’))))
                     (cl-incf word-start))
                   (while (and (< word-start word-end)
                               (let ((c (char-before word-end)))
-                                (or (= c 39) (= c 8217))))
+                                (or (= c ?') (= c ?’))))
                     (cl-decf word-end))
                   (while (< word-start word-end)
                     (let ((subword-end word-end))
@@ -473,7 +473,7 @@ If CHECK is non-nil, always check first."
       (progn
         (let (set-message-function) ;; bug#63253: Broken `with-delayed-message'
           (with-delayed-message (1 "Fontifying...")
-            (jinx--in-base-buffer #'jit-lock-fontify-now))
+            (jinx--in-base-buffer #'jit-lock-fontify-now start end))
           (with-delayed-message (1 "Checking...")
             (jinx--check-region start end)))
         (jinx--get-overlays start end visible))
@@ -710,18 +710,22 @@ If CHECK is non-nil, always check first."
                      nil nil nil t word)
                     word)))))
          (len (length choice)))
-    (if-let ((save (and (> len 0) (assq (aref choice 0) jinx--save-keys))))
-        (progn
-          (funcall (cdr save) 'save (car save) (if (> len 1) (substring choice 1) word))
-          (jinx--recheck-overlays))
-      (when-let (((not (equal choice word)))
-                 (start (overlay-start overlay))
-                 (end (overlay-end overlay)))
-        (undo-boundary)
-        (delete-overlay overlay)
-        (goto-char end)
-        (insert-before-markers choice)
-        (delete-region start end)))))
+    (pcase (and (> len 0) (assq (aref choice 0) jinx--save-keys))
+      (`(,key . ,fun)
+       (funcall fun 'save key (if (> len 1) (substring choice 1) word))
+       (jinx--recheck-overlays))
+      ((guard (not (equal choice word)))
+       (jinx--correct-replace overlay choice)))))
+
+(defun jinx--correct-replace (overlay word)
+  "Replace OVERLAY with WORD."
+  (when-let ((start (overlay-start overlay))
+             (end (overlay-end overlay)))
+    (undo-boundary)
+    (delete-overlay overlay)
+    (goto-char end)
+    (insert-before-markers word)
+    (delete-region start end)))
 
 (defun jinx--load-dicts ()
   "Load dictionaries and setup syntax table."
@@ -734,6 +738,7 @@ If CHECK is non-nil, always check first."
     (cl-loop for c across (jinx--mod-wordchars dict) do
              (modify-syntax-entry c "w" jinx--syntax-table)))
   (modify-syntax-entry ?' "w" jinx--syntax-table)
+  (modify-syntax-entry ?’ "w" jinx--syntax-table)
   (modify-syntax-entry ?. "." jinx--syntax-table))
 
 ;;;; Save functions
