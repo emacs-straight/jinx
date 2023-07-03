@@ -5,7 +5,7 @@
 ;; Author: Daniel Mendler <mail@daniel-mendler.de>
 ;; Maintainer: Daniel Mendler <mail@daniel-mendler.de>
 ;; Created: 2023
-;; Version: 0.8
+;; Version: 0.9
 ;; Package-Requires: ((emacs "27.1") (compat "29.1.4.0"))
 ;; Homepage: https://github.com/minad/jinx
 ;; Keywords: convenience, wp
@@ -148,6 +148,7 @@ checking."
 (defcustom jinx-exclude-regexps
   '((emacs-lisp-mode "Package-Requires:.*$")
     (t "[A-Z]+\\>"         ;; Uppercase words
+       "-\\>"              ;; Hyphens used as bullet points
        "\\w*?[0-9]\\w*\\>" ;; Words with numbers, hex codes
        "[a-z]+://\\S-+"    ;; URI
        "<?[-+_.~a-zA-Z][-+_.~:a-zA-Z0-9]*@[-.a-zA-Z0-9]+>?" ;; Email
