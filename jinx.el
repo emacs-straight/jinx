@@ -811,6 +811,7 @@ With prefix argument GLOBAL change the languages globally."
            (user-error "No languages selected"))
        " "))
     current-prefix-arg))
+  (unless jinx-mode (jinx-mode 1))
   (cond
    (global
     (kill-local-variable 'jinx-languages)
@@ -871,7 +872,6 @@ If prefix argument ALL non-nil correct all misspellings."
     (delete-minibuffer-contents)
     (insert word)
     (exit-minibuffer)))
-(put #'jinx-correct-select 'completion-predicate #'ignore)
 
 (defun jinx-next (n)
   "Go to to Nth next misspelling."
@@ -940,6 +940,10 @@ If prefix argument ALL non-nil correct all misspellings."
                       (eq (aref (buffer-name) 0) ?\s)))
              (apply #'derived-mode-p jinx-include-modes))
     (jinx-mode 1)))
+
+(put #'jinx-correct-select 'completion-predicate #'ignore)
+(put #'jinx-next 'command-modes '(jinx-mode))
+(put #'jinx-previous 'command-modes '(jinx-mode))
 
 (provide 'jinx)
 ;;; jinx.el ends here
