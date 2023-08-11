@@ -157,10 +157,9 @@ checking."
   "List of excluded regexps per major mode."
   :type '(alist :key-type symbol :value-type (repeat regexp)))
 
-(defcustom jinx-include-modes
-  '(text-mode prog-mode conf-mode)
-  "List of modes included by `global-jinx-mode'."
-  :type '(repeat symbol))
+(defcustom jinx-suggestion-distance 3
+  "Maximal edit distance for session words to be included in suggestions."
+  :type 'natnum)
 
 (defvar-local jinx-local-words ""
   "File-local words, as a string separated by whitespace.")
@@ -642,34 +641,49 @@ If CHECK is non-nil, always check first."
                (not (bound-and-true-p icomplete-mode)))
       (minibuffer-completion-help))))
 
+(defun jinx--correct-suggestions-dicts (word)
+  "Return suggestions for WORD from all dictionaries."
+  (cl-loop with idx = 1
+           with ht = (make-hash-table :test #'equal)
+           for dict in jinx--dicts
+           for desc = (jinx--mod-describe dict)
+           for group = (format "Suggestions from dictionary ‘%s’ (%s)"
+                               (car desc) (cdr desc))
+           nconc
+           (cl-loop for sugg in (jinx--mod-suggest dict word)
+                    if (not (gethash sugg ht)) collect
+                    (progn
+                      (add-text-properties
+                       0 (length sugg)
+                       (list 'jinx--group group
+                             'jinx--prefix
+                             (cond ((< idx 10)
+                                    (format #("%d " 0 3 (face jinx-key))
+                                            idx))
+                                   ((< (- idx 10) (length jinx--select-keys))
+                                    (format #("0%c " 0 4 (face jinx-key))
+                                            (aref jinx--select-keys (- idx 10))))))
+                       sugg)
+                      (cl-incf idx)
+                      (puthash sugg t ht)
+                      sugg))))
+
+(defun jinx--correct-suggestions-save (word)
+  "Return save actions for WORD."
+  (cl-loop for (key . fun) in jinx--save-keys nconc
+           (ensure-list (funcall fun nil key word))))
+
+(defun jinx--correct-suggestions-session (word)
+  "Return suggestions for WORD from session words."
+  (cl-loop for w in jinx--session-words
+           if (<= (string-distance word w) jinx-suggestion-distance)
+           collect (propertize w 'jinx--group "Suggestions from session words")))
+
 (defun jinx--correct-suggestions (word)
   "Retrieve suggestions for WORD."
-  (nconc
-   (cl-loop
-    with idx = 1
-    with ht = (make-hash-table :test #'equal)
-    for dict in jinx--dicts
-    for desc = (jinx--mod-describe dict)
-    for group = (format "Suggestions from dictionary ‘%s’ (%s)" (car desc) (cdr desc))
-    nconc
-    (cl-loop
-     for sugg in (jinx--mod-suggest dict word)
-     if (not (gethash sugg ht)) collect
-     (progn
-       (add-text-properties
-        0 (length sugg)
-        (list 'jinx--group group
-              'jinx--prefix
-              (cond ((< idx 10)
-                     (format #("%d " 0 3 (face jinx-key)) idx))
-                    ((< (- idx 10) (length jinx--select-keys))
-                     (format #("0%c " 0 4 (face jinx-key)) (aref jinx--select-keys (- idx 10))))))
-        sugg)
-       (cl-incf idx)
-       (puthash sugg t ht)
-       sugg)))
-   (cl-loop for (key . fun) in jinx--save-keys nconc
-            (ensure-list (funcall fun nil key word)))))
+  (nconc (jinx--correct-suggestions-dicts word)
+         (jinx--correct-suggestions-session word)
+         (jinx--correct-suggestions-save word)))
 
 (defun jinx--correct-affixation (cands)
   "Affixate CANDS during completion."
@@ -690,9 +704,8 @@ If CHECK is non-nil, always check first."
       word
     (get-text-property 0 'jinx--group word)))
 
-(defun jinx--correct-table (word)
-  "Completion table for WORD suggestions."
-  (setq word (jinx--correct-suggestions word))
+(defun jinx--correct-table (suggestions)
+  "Completion table for SUGGESTIONS."
   (lambda (str pred action)
     (if (eq action 'metadata)
         '(metadata (display-sort-function . identity)
@@ -701,7 +714,7 @@ If CHECK is non-nil, always check first."
                    (group-function . jinx--correct-group)
                    (affixation-function . jinx--correct-affixation)
                    (annotation-function . jinx--correct-annotation))
-      (complete-with-action action word str pred))))
+      (complete-with-action action suggestions str pred))))
 
 (defun jinx--correct (overlay info)
   "Correct word at OVERLAY, maybe show prompt INFO."
@@ -716,7 +729,8 @@ If CHECK is non-nil, always check first."
                   #'jinx--correct-setup
                 (or (completing-read
                      (format "Correct ‘%s’%s: " word (or info ""))
-                     (jinx--correct-table word)
+                     (jinx--correct-table
+                      (jinx--correct-suggestions word))
                      nil nil nil t word)
                     word)))))
          (len (length choice)))
@@ -934,8 +948,16 @@ If prefix argument ALL non-nil correct all misspellings."
     (jit-lock-unregister #'jinx--mark-pending)
     (jinx--cleanup))))
 
+(defcustom global-jinx-modes '(text-mode prog-mode conf-mode)
+  "List of modes where Jinx should be enabled.
+The variable can either be t, nil or a list of t, nil, mode
+symbols or elements of the form (not modes)."
+  :type '(repeat sexp))
+
 ;;;###autoload
-(define-globalized-minor-mode global-jinx-mode jinx-mode jinx--on :group 'jinx)
+(define-globalized-minor-mode global-jinx-mode
+  jinx-mode jinx--on
+  :group 'jinx)
 
 (defun jinx--on ()
   "Turn `jinx-mode' on."
@@ -943,7 +965,14 @@ If prefix argument ALL non-nil correct all misspellings."
                       buffer-read-only
                       (buffer-base-buffer) ;; Do not enable in indirect buffers
                       (eq (aref (buffer-name) 0) ?\s)))
-             (apply #'derived-mode-p jinx-include-modes))
+             ;; TODO backport `easy-mmode--globalized-predicate-p'
+             (or (eq t global-jinx-modes)
+                 (eq t (cl-loop for p in global-jinx-modes thereis
+                                (pcase-exhaustive p
+                                  ('t t)
+                                  ('nil 0)
+                                  ((pred symbolp) (and (derived-mode-p p) t))
+                                  (`(not . ,m) (and (apply #'derived-mode-p m) 0)))))))
     (jinx-mode 1)))
 
 (put #'jinx-correct-select 'completion-predicate #'ignore)
