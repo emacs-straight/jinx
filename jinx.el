@@ -586,6 +586,13 @@ If CHECK is non-nil, always check first."
           (setq mod-file (expand-file-name mod-name))))
       (module-load mod-file))))
 
+(defmacro jinx--correct-guard (&rest body)
+  "Guard BODY during correction loop."
+  `(cl-letf (((symbol-function #'jinx--timer-handler) #'ignore) ;; Inhibit
+             (repeat-mode nil)) ;; No repeating of jinx-next and jinx-previous
+     (unless jinx-mode (jinx-mode 1))
+     ,@body))
+
 (defun jinx--correct-highlight (overlay fun)
   "Highlight and show OVERLAY during FUN."
   (declare (indent 1))
@@ -711,30 +718,32 @@ The word will be associated with GROUP and get a prefix key."
                    (annotation-function . jinx--correct-annotation))
       (complete-with-action action suggestions str pred))))
 
-(defun jinx--correct (overlay info)
+(defun jinx--correct-overlay (overlay &optional info)
   "Correct word at OVERLAY, maybe show prompt INFO."
-  (let* ((word (buffer-substring-no-properties
-                (overlay-start overlay) (overlay-end overlay)))
-         (choice
-          (jinx--correct-highlight overlay
-            (lambda ()
-              (when (or (< (point) (window-start)) (> (point) (window-end nil t)))
-                (recenter))
-              (minibuffer-with-setup-hook
-                  #'jinx--correct-setup
-                (or (completing-read
-                     (format "Correct ‘%s’%s: " word (or info ""))
-                     (jinx--correct-table
-                      (jinx--correct-suggestions word))
-                     nil nil nil t word)
-                    word)))))
-         (len (length choice)))
-    (pcase (and (> len 0) (assq (aref choice 0) jinx--save-keys))
-      (`(,key . ,fun)
-       (funcall fun 'save key (if (> len 1) (substring choice 1) word))
-       (jinx--recheck-overlays))
-      ((guard (not (equal choice word)))
-       (jinx--correct-replace overlay choice)))))
+  (catch 'jinx--goto
+    (let* ((word (buffer-substring-no-properties
+                  (overlay-start overlay) (overlay-end overlay)))
+           (choice
+            (jinx--correct-highlight overlay
+              (lambda ()
+                (when (or (< (point) (window-start)) (> (point) (window-end nil t)))
+                  (recenter))
+                (minibuffer-with-setup-hook
+                    #'jinx--correct-setup
+                  (or (completing-read
+                       (format "Correct ‘%s’%s: " word (or info ""))
+                       (jinx--correct-table
+                        (jinx--correct-suggestions word))
+                       nil nil nil t word)
+                      word)))))
+           (len (length choice)))
+      (pcase (and (> len 0) (assq (aref choice 0) jinx--save-keys))
+        (`(,key . ,fun)
+         (funcall fun 'save key (if (> len 1) (substring choice 1) word))
+         (jinx--recheck-overlays))
+        ((guard (not (equal choice word)))
+         (jinx--correct-replace overlay choice)))
+      nil)))
 
 (defun jinx--correct-replace (overlay word)
   "Replace OVERLAY with WORD."
@@ -759,6 +768,16 @@ The word will be associated with GROUP and get a prefix key."
   (modify-syntax-entry ?' "w" jinx--syntax-table)
   (modify-syntax-entry ?’ "w" jinx--syntax-table)
   (modify-syntax-entry ?. "." jinx--syntax-table))
+
+(defun jinx--bounds-of-word ()
+  "Return bounds of word at point using `jinx--syntax-table'."
+  (save-excursion
+    (save-match-data
+      (with-syntax-table jinx--syntax-table
+        (unless (looking-at-p "\\<")
+          (re-search-backward "\\<\\|^"))
+        (when (re-search-forward "\\<\\w+\\>" nil t)
+          (cons (match-beginning 0) (match-end 0)))))))
 
 ;;;; Save functions
 
@@ -843,35 +862,62 @@ With prefix argument GLOBAL change the languages globally."
   (jinx--cleanup))
 
 ;;;###autoload
-(defun jinx-correct (&optional all)
-  "Correct nearest misspelled word.
-If prefix argument ALL non-nil correct all misspellings."
+(defun jinx-correct-all ()
+  "Correct all misspelled words in the buffer."
+  (interactive "*")
+  (jinx--correct-guard
+   (let* ((overlays (jinx--force-overlays (point-min) (point-max) :check t))
+          (count (length overlays))
+          (idx 0))
+     (push-mark)
+     (while-let ((ov (nth idx overlays)))
+       (if-let (((overlay-buffer ov))
+                (skip (jinx--correct-overlay ov (format " (%d of %d)" (1+ idx) count))))
+           (setq idx (mod (+ idx skip) count))
+         (cl-incf idx))))))
+
+;;;###autoload
+(defun jinx-correct-nearest ()
+  "Correct nearest misspelled word."
+  (interactive "*")
+  (save-excursion
+    (jinx--correct-guard
+     (let* ((overlays (jinx--force-overlays (window-start) (window-end) :visible t))
+            (count (length overlays))
+            (idx 0))
+       ;; Not using `while-let' is intentional here.
+       (while (when-let ((ov (nth idx overlays)))
+                (if (overlay-buffer ov)
+                    (when-let ((skip (jinx--correct-overlay ov)))
+                      (setq idx (mod (+ idx skip) count)))
+                  (cl-incf idx)))))))) ;; Skip deleted overlay
+
+;;;###autoload
+(defun jinx-correct-at-point (&optional start end)
+  "Correct a word between START and END, by default the word under point.
+Suggest corrections even if the word is not misspelled."
+  (interactive)
+  (unless (and start end)
+    (setf (cons start end) (or (jinx--bounds-of-word)
+                               (user-error "No word at point"))))
+  (save-excursion
+    (jinx--correct-guard
+     (while-let ((skip (jinx--correct-overlay (make-overlay start end))))
+       (forward-to-word skip)
+       (when-let ((bounds (jinx--bounds-of-word)))
+         (setf (cons start end) bounds))))))
+
+;;;###autoload
+(defun jinx-correct (&optional arg)
+  "Correct word depending on prefix ARG.
+- If prefix ARG is nil, correct nearest misspelling.
+- If prefix ARG is 4 (C-u pressed once), correct all misspellings.
+- If prefix ARG is 16 (C-u pressed twice), correct word at point."
   (interactive "*P")
-  (unless jinx-mode (jinx-mode 1))
-  (cl-letf* (((symbol-function #'jinx--timer-handler) #'ignore) ;; Inhibit
-             (repeat-mode nil) ;; No repeating of jinx-next and jinx-previous
-             (old-point (point-marker))
-             (overlays
-              (if all
-                  (jinx--force-overlays (point-min) (point-max) :check t)
-                (jinx--force-overlays (window-start) (window-end) :visible t)))
-             (count (length overlays))
-             (idx 0))
-    (when all
-      (push-mark))
-    (unwind-protect
-        (while (when-let ((ov (nth idx overlays)))
-                 (if (not (overlay-buffer ov))
-                     (cl-incf idx) ;; Skip deleted overlay
-                   (let ((skip
-                          (catch 'jinx--goto
-                            (jinx--correct
-                             ov (and all (format " (%d of %d)" (1+ idx) count))))))
-                     (cond
-                      ((integerp skip) (setq idx (mod (+ idx skip) count)))
-                      (all (cl-incf idx)))))))
-      (unless all
-        (goto-char old-point)))))
+  (pcase arg
+    ('nil (jinx-correct-nearest))
+    ('(16) (jinx-correct-at-point))
+    (_ (jinx-correct-all))))
 
 (defun jinx-correct-select ()
   "Quick selection key for corrections."
