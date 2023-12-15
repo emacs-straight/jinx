@@ -165,6 +165,10 @@ checking."
   "Maximal edit distance for session words to be included in suggestions."
   :type 'natnum)
 
+(defcustom jinx-menu-suggestions 10
+  "Maximal number of suggestions shown in the context menu."
+  :type 'natnum)
+
 (defvar-local jinx-local-words ""
   "File-local words, as a string separated by whitespace.")
 
@@ -602,14 +606,6 @@ If CHECK is non-nil, always check first."
      (unless jinx-mode (jinx-mode 1))
      ,@body))
 
-(defun jinx--correct-menu-save (ov &rest ins)
-  "Helper for `jinx-correct-menu'.
-Insert INS in the minibuffer and correct word at OV."
-  (minibuffer-with-setup-hook
-      (lambda ()
-        (apply #'insert ins))
-    (jinx-correct-word (overlay-start ov) (overlay-end ov))))
-
 (defun jinx--correct-highlight (overlay fun)
   "Highlight and show OVERLAY during FUN."
   (declare (indent 1))
@@ -744,16 +740,17 @@ The word will be associated with GROUP and get a prefix key."
   "Completion table for SUGGESTIONS."
   (lambda (str pred action)
     (if (eq action 'metadata)
-        '(metadata (display-sort-function . identity)
-                   (cycle-sort-function . identity)
-                   (category . jinx)
-                   (group-function . jinx--correct-group)
-                   (affixation-function . jinx--correct-affixation)
-                   (annotation-function . jinx--correct-annotation))
+        `(metadata (category . jinx)
+                   (display-sort-function . ,#'identity)
+                   (cycle-sort-function . ,#'identity)
+                   (group-function . ,#'jinx--correct-group)
+                   (affixation-function . ,#'jinx--correct-affixation)
+                   (annotation-function . ,#'jinx--correct-annotation))
       (complete-with-action action suggestions str pred))))
 
-(defun jinx--correct-overlay (overlay &optional info)
-  "Correct word at OVERLAY, maybe show prompt INFO."
+(cl-defun jinx--correct-overlay (overlay &key info initial)
+  "Correct word at OVERLAY.
+Optionally show prompt INFO and insert INITIAL input."
   (catch 'jinx--goto
     (let* ((word (buffer-substring-no-properties
                   (overlay-start overlay) (overlay-end overlay)))
@@ -768,7 +765,7 @@ The word will be associated with GROUP and get a prefix key."
                        (format "Correct ‘%s’%s: " word (or info ""))
                        (jinx--correct-table
                         (jinx--correct-suggestions word))
-                       nil nil nil t word)
+                       nil nil initial t word)
                       word)))))
            (len (length choice)))
       (pcase (and (> len 0) (assq (aref choice 0) jinx--save-keys))
@@ -899,7 +896,7 @@ buffers.  See also the variable `jinx-languages'."
      (push-mark)
      (while-let ((ov (nth idx overlays)))
        (if-let (((overlay-buffer ov))
-                (skip (jinx--correct-overlay ov (format " (%d of %d)" (1+ idx) count))))
+                (skip (jinx--correct-overlay ov :info (format " (%d of %d)" (1+ idx) count))))
            (setq idx (mod (+ idx skip) count))
          (cl-incf idx))))))
 
@@ -920,19 +917,24 @@ buffers.  See also the variable `jinx-languages'."
                   (cl-incf idx)))))))) ;; Skip deleted overlay
 
 ;;;###autoload
-(defun jinx-correct-word (&optional start end)
+(defun jinx-correct-word (&optional start end initial)
   "Correct word between START and END, by default the word before point.
-Suggest corrections even if the word is not misspelled."
+Suggest corrections even if the word is not misspelled.
+Optionally insert INITIAL input in the minibuffer."
   (interactive)
   (unless (and start end)
     (setf (cons start end) (or (jinx--bounds-of-word)
                                (user-error "No word at point"))))
   (save-excursion
     (jinx--correct-guard
-     (while-let ((skip (jinx--correct-overlay (make-overlay start end))))
+     (while-let ((skip (let ((ov (make-overlay start end)))
+                         (unwind-protect
+                             (jinx--correct-overlay ov :initial initial)
+                         (delete-overlay ov)))))
        (forward-to-word skip)
        (when-let ((bounds (jinx--bounds-of-word)))
-         (setf (cons start end) bounds))))))
+         (setf (cons start end) bounds
+               initial nil))))))
 
 ;;;###autoload
 (defun jinx-correct (&optional arg)
@@ -992,23 +994,24 @@ This command dispatches to the following commands:
         (when-let ((desc (jinx--mod-describe dict))
                    (suggestions (jinx--mod-suggest dict word)))
           (push `[,(concat (car desc) " - " (cdr desc)) :active nil] menu)
-          (cl-loop for w in suggestions repeat 10 do
-                   (push `[,w (jinx--correct-replace ,ov ,w)] menu))
-          (push "--" menu)))
+          (cl-loop for w in suggestions repeat jinx-menu-suggestions do
+                   (push `[,w (jinx--correct-replace ,ov ,w)] menu))))
       (when-let ((suggestions (jinx--session-suggestions word)))
         (push ["Session" :active nil] menu)
-        (cl-loop for w in suggestions repeat 10 do
-          (push `[,w (jinx--correct-replace ,ov ,w)] menu))
-        (push "--" menu))
+        (cl-loop for w in suggestions repeat jinx-menu-suggestions do
+          (push `[,w (jinx--correct-replace ,ov ,w)] menu)))
       (push ["Accept and save" :active nil] menu)
       (cl-loop for (key . fun) in jinx--save-keys
                for actions = (funcall fun nil key word) do
                (unless (consp (car actions)) (setq actions (list actions)))
                (cl-loop for (k w a) in actions do
-                        (push `[,a (jinx--correct-menu-save ,ov ,k ,w)] menu)))
+                        (push `[,a (jinx-correct-word
+                                    ,(overlay-start ov) ,(overlay-end ov)
+                                    ,(concat (if (stringp k) k (char-to-string k)) w))]
+                              menu)))
       (popup-menu (easy-menu-create-menu
                    (format "Correct `%s'" word)
-                   (nreverse menu))
+                   (delete-dups (nreverse menu)))
                   event))))
 
 ;;;###autoload
