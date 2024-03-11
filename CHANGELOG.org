@@ -4,6 +4,10 @@
 
 * Development
 
+- Bugfix: Ensure that ~jinx-next~ unfolds hidden misspellings.
+
+* Version 1.4 (2024-03-10)
+
 - Bugfix: Ensure that ~jinx-correct~ saves words without text properties in the
   file-local variable ~jinx-local-words~.
 - Bugfix: Ensure that ~eval~ local variable enabling ~jinx-mode~ works.
