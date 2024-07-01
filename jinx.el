@@ -5,7 +5,7 @@
 ;; Author: Daniel Mendler <mail@daniel-mendler.de>
 ;; Maintainer: Daniel Mendler <mail@daniel-mendler.de>
 ;; Created: 2023
-;; Version: 1.8
+;; Version: 1.9
 ;; Package-Requires: ((emacs "27.1") (compat "29.1.4.4"))
 ;; Homepage: https://github.com/minad/jinx
 ;; Keywords: convenience, text
@@ -403,9 +403,13 @@ FLAG must be t or nil."
               (eq flag
                   (not (and (get-text-property start 'jinx--pending)
                             (not (invisible-p start))))))
-    (setq start (next-single-char-property-change
+    (let ((next (next-single-char-property-change
                  start 'jinx--pending nil
                  (next-single-char-property-change start 'invisible nil end))))
+      ;; END can be outside the buffer if the buffer size has changed in
+      ;; between. Then `next-single-property-change' will return (point-max)
+      ;; instead of END. See gh:minad/jinx#156.
+      (setq start (if (> next start) next end))))
   start)
 
 (defun jinx--check-pending (start end)
@@ -952,22 +956,25 @@ buffers.  See also the variable `jinx-languages'."
   (jinx--cleanup))
 
 ;;;###autoload
-(defun jinx-correct-all ()
-  "Correct all misspelled words in the buffer."
-  (interactive "*")
+(defun jinx-correct-all (&optional only-check)
+  "Correct all misspelled words in the buffer.
+With prefix argument ONLY-CHECK, only check the buffer and highlight all
+misspellings, but do not open the correction UI."
+  (interactive "*P")
   (jinx--correct-guard
    (let* ((overlays (jinx--force-overlays (or (use-region-beginning) (point-min))
                                           (or (use-region-end) (point-max))
                                           :check t))
           (count (length overlays))
           (idx 0))
-     (deactivate-mark)
-     (push-mark)
-     (while-let ((ov (nth idx overlays)))
-       (if-let (((overlay-buffer ov))
-                (skip (jinx--correct-overlay ov :info (format " (%d of %d)" (1+ idx) count))))
-           (setq idx (mod (+ idx skip) count))
-         (cl-incf idx))))))
+     (unless only-check
+       (deactivate-mark)
+       (push-mark)
+       (while-let ((ov (nth idx overlays)))
+         (if-let (((overlay-buffer ov))
+                  (skip (jinx--correct-overlay ov :info (format " (%d of %d)" (1+ idx) count))))
+             (setq idx (mod (+ idx skip) count))
+           (cl-incf idx)))))))
 
 ;;;###autoload
 (defun jinx-correct-nearest ()
@@ -1015,11 +1022,15 @@ This command dispatches to the following commands:
     is 4, corresponding to \\[universal-argument] pressed once,
     correct all misspelled words.
   - `jinx-correct-word': If prefix ARG is 16, corresponding to
-    \\[universal-argument] pressed twice, correct word before point."
+    \\[universal-argument] pressed twice, correct word before point.
+  - If prefix ARG is 64, corresponding to \\[universal-argument] pressed
+    three times, check the whole buffer, but do not open the correction
+    UI."
   (interactive "*P")
   (pcase arg
     ('nil (if (use-region-p) (jinx-correct-all) (jinx-correct-nearest)))
     ('(16) (jinx-correct-word))
+    ('(64) (jinx-correct-all t))
     (_ (jinx-correct-all))))
 
 (defun jinx-correct-select ()
