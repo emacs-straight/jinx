@@ -1,4 +1,4 @@
-This is docJ5LygN.info, produced by makeinfo version 6.8 from jinx.texi.
+This is docrm9Qbu.info, produced by makeinfo version 6.8 from jinx.texi.
 
 INFO-DIR-SECTION Emacs misc features
 START-INFO-DIR-ENTRY
@@ -6,7 +6,7 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
-File: docJ5LygN.info,  Node: Top,  Next: Installation,  Up: (dir)
+File: docrm9Qbu.info,  Node: Top,  Next: Installation,  Up: (dir)
 
 jinx.el - Enchanted Spell Checker
 *********************************
@@ -53,7 +53,7 @@ and ‘PascalCase’ are accepted.
 * Contributions::
 
 
-File: docJ5LygN.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
+File: docrm9Qbu.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 
 1 Installation
 **************
@@ -79,7 +79,7 @@ have to install different packages:
 intervention.
 
 
-File: docJ5LygN.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
+File: docrm9Qbu.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
 
 2 Configuration
 ***************
@@ -122,7 +122,7 @@ save misspellings as global abbreviations and support for Ispell
 ‘LocalWords’.
 
 
-File: docJ5LygN.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
+File: docrm9Qbu.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
 
 3 Correcting misspellings
 *************************
@@ -162,7 +162,7 @@ the screen and enable annotations.
      (vertico-multiform-mode 1)
 
 
-File: docJ5LygN.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
+File: docrm9Qbu.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
 
 4 Navigating between misspellings
 *********************************
@@ -181,7 +181,7 @@ point placement.  If ‘repeat-mode’ from Emacs 28 is enabled, the
 movement can be repeated with the keys ‘n’ and ‘p’.
 
 
-File: docJ5LygN.info,  Node: Enchant backends and personal dictionaries,  Next: Alternative spell-checking packages,  Prev: Navigating between misspellings,  Up: Top
+File: docrm9Qbu.info,  Node: Enchant backends and personal dictionaries,  Next: Alternative spell-checking packages,  Prev: Navigating between misspellings,  Up: Top
 
 5 Enchant backends and personal dictionaries
 ********************************************
@@ -203,7 +203,7 @@ checkers.  See the Enchant manual
 (https://abiword.github.io/enchant/lib/enchant.html) for details.
 
 
-File: docJ5LygN.info,  Node: Alternative spell-checking packages,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
+File: docrm9Qbu.info,  Node: Alternative spell-checking packages,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
 
 6 Alternative spell-checking packages
 *************************************
@@ -244,7 +244,7 @@ closest to the behavior of Jinx.
      must be instructed to do so via the command ‘flyspell-buffer’.
 
 
-File: docJ5LygN.info,  Node: Contributions,  Prev: Alternative spell-checking packages,  Up: Top
+File: docrm9Qbu.info,  Node: Contributions,  Prev: Alternative spell-checking packages,  Up: Top
 
 7 Contributions
 ***************
