@@ -7,7 +7,7 @@
 ;; Created: 2023
 ;; Version: 1.10
 ;; Package-Requires: ((emacs "28.1") (compat "30"))
-;; Homepage: https://github.com/minad/jinx
+;; URL: https://github.com/minad/jinx
 ;; Keywords: convenience, text
 
 ;; This file is part of GNU Emacs.
@@ -61,7 +61,7 @@
 (defgroup jinx nil
   "Enchanted Spell Checker."
   :link '(info-link :tag "Info Manual" "(jinx)")
-  :link '(url-link :tag "Homepage" "https://github.com/minad/jinx")
+  :link '(url-link :tag "Website" "https://github.com/minad/jinx")
   :link '(emacs-library-link :tag "Library Source" "jinx.el")
   :group 'text
   :prefix "jinx-")
@@ -1113,18 +1113,32 @@ This command dispatches to the following commands:
     (jit-lock-unregister #'jinx--mark-pending)
     (jinx--cleanup))))
 
+;; TODO use `:predicate' on Emacs 29
+(defcustom global-jinx-modes '(text-mode prog-mode conf-mode)
+  "List of modes where Jinx should be enabled.
+The variable can either be t, nil or a list of t, nil, mode
+symbols or elements of the form (not modes)."
+  :type '(repeat sexp))
+
 ;;;###autoload
 (define-globalized-minor-mode global-jinx-mode
   jinx-mode jinx--on
-  :predicate '(text-mode prog-mode conf-mode)
   :group 'jinx)
 
 (defun jinx--on ()
   "Turn `jinx-mode' on."
-  (unless (or noninteractive
-              buffer-read-only
-              (buffer-base-buffer) ;; Do not enable in indirect buffers
-              (eq (aref (buffer-name) 0) ?\s))
+  (when (and (not (or noninteractive
+                      buffer-read-only
+                      (buffer-base-buffer) ;; Do not enable in indirect buffers
+                      (eq (aref (buffer-name) 0) ?\s)))
+             ;; TODO use `:predicate' on Emacs 29
+             (or (eq t global-jinx-modes)
+                 (eq t (cl-loop for p in global-jinx-modes thereis
+                                (pcase-exhaustive p
+                                  ('t t)
+                                  ('nil 0)
+                                  ((pred symbolp) (and (derived-mode-p p) t))
+                                  (`(not . ,m) (and (seq-some #'derived-mode-p m) 0)))))))
     (jinx-mode 1)))
 
 (provide 'jinx)
