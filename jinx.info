@@ -1,4 +1,4 @@
-This is docn3m4zB.info, produced by makeinfo version 6.8 from jinx.texi.
+This is docRQNl7W.info, produced by makeinfo version 6.8 from jinx.texi.
 
 INFO-DIR-SECTION Emacs misc features
 START-INFO-DIR-ENTRY
@@ -6,7 +6,7 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
-File: docn3m4zB.info,  Node: Top,  Next: Installation,  Up: (dir)
+File: docRQNl7W.info,  Node: Top,  Next: Installation,  Up: (dir)
 
 jinx.el - Enchanted Spell Checker
 *********************************
@@ -53,7 +53,7 @@ and ‘PascalCase’ are accepted.
 * Contributions::
 
 
-File: docn3m4zB.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
+File: docRQNl7W.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 
 1 Installation
 **************
@@ -80,7 +80,7 @@ different packages:
 intervention.
 
 
-File: docn3m4zB.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
+File: docRQNl7W.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
 
 2 Configuration
 ***************
@@ -123,7 +123,7 @@ save misspellings as global abbreviations and support for Ispell
 ‘LocalWords’.
 
 
-File: docn3m4zB.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
+File: docRQNl7W.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
 
 3 Correcting misspellings
 *************************
@@ -163,7 +163,7 @@ the screen and enable annotations.
      (vertico-multiform-mode 1)
 
 
-File: docn3m4zB.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
+File: docRQNl7W.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
 
 4 Navigating between misspellings
 *********************************
@@ -182,7 +182,7 @@ point placement.  If ‘repeat-mode’ from Emacs 28 is enabled, the
 movement can be repeated with the keys ‘n’ and ‘p’.
 
 
-File: docn3m4zB.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
+File: docRQNl7W.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
 
 5 Enchant backends and personal dictionaries
 ********************************************
@@ -203,7 +203,7 @@ checkers.  See the Enchant manual
 (https://rrthomas.github.io/enchant/lib/enchant.html) for details.
 
 
-File: docn3m4zB.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
+File: docRQNl7W.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
 
 6 Alternatives
 **************
@@ -244,7 +244,7 @@ closest to the behavior of Jinx.
      must be instructed to do so via the command ‘flyspell-buffer’.
 
 
-File: docn3m4zB.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
+File: docRQNl7W.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
 
 7 Contributions
 ***************
