@@ -5,7 +5,7 @@
 ;; Author: Daniel Mendler <mail@daniel-mendler.de>
 ;; Maintainer: Daniel Mendler <mail@daniel-mendler.de>
 ;; Created: 2023
-;; Version: 1.10
+;; Version: 1.11
 ;; Package-Requires: ((emacs "28.1") (compat "30"))
 ;; URL: https://github.com/minad/jinx
 ;; Keywords: convenience, text
@@ -44,8 +44,8 @@
 ;; calling the widely-used API of the Enchant library, see
 ;; https://rrthomas.github.io/enchant/.  Jinx automatically compiles
 ;; jinx-mod.c and loads the dynamic module at startup.  By binding
-;; directly to the native Enchant API, Jinx avoids the slower backend
-;; process communication with Aspell.
+;; directly to the native Enchant API, Jinx avoids slower inter-process
+;; communication.
 
 ;; See the manual for further information.
 
@@ -329,6 +329,9 @@ Predicate may return a position to skip forward.")
 (defvar-local jinx--dicts nil
   "List of dictionaries.")
 
+(defvar jinx--dicts-hash (make-hash-table :test #'equal :weakness 'value)
+  "Weak hash table of all loaded dictionaries.")
+
 (defvar-local jinx--syntax-table nil
   "Syntax table used during checking.
 The table inherits from `jinx--base-syntax-table'.  The table is
@@ -384,19 +387,21 @@ dictionaries.  Afterwards `jinx--syntax-overrides' are applied.")
               (cl-loop for f in face thereis (memq f jinx--exclude-faces))
             (memq face jinx--exclude-faces))))))
 
-(defun jinx--word-valid-p (start)
-  "Return non-nil if word at START is valid."
-  (let ((word (buffer-substring-no-properties start (point)))
-        case-fold-search)
-    (or (member word jinx--session-words)
-        ;; Allow capitalized words
+(defun jinx--word-valid-p (word)
+  "Return non-nil if WORD is valid.
+WORD can also be a start position."
+  (unless (stringp word)
+    (setq word (buffer-substring-no-properties word (point))))
+  (or (member word jinx--session-words)
+      ;; Allow capitalized words
+      (let (case-fold-search)
         (and (string-match-p "\\`[[:upper:]][[:lower:]]+\\'" word)
              (cl-loop
               for w in jinx--session-words
               thereis (and (string-equal-ignore-case word w)
-                           (string-match-p "\\`[[:lower:]]+\\'" w))))
-        (cl-loop for dict in jinx--dicts
-                 thereis (jinx--mod-check dict word)))))
+                           (string-match-p "\\`[[:lower:]]+\\'" w)))))
+      (cl-loop for dict in jinx--dicts
+               thereis (jinx--mod-check dict word))))
 
 ;;;; Internal functions
 
@@ -685,12 +690,13 @@ See `isearch-open-necessary-overlays' and `isearch-open-overlay-temporary'."
 
 (defun jinx--correct-setup ()
   "Setup minibuffer for correction."
-  (let ((message-log-max nil)
-        (inhibit-message t))
-    (use-local-map (make-composed-keymap (list jinx-correct-map) (current-local-map)))
-    (when (and (eq completing-read-function #'completing-read-default)
-               (not (bound-and-true-p vertico-mode))
-               (not (bound-and-true-p icomplete-mode)))
+  (use-local-map (make-composed-keymap (list jinx-correct-map) (current-local-map)))
+  ;; TODO Use `eager-display' on Emacs 31
+  (when (and (eq completing-read-function #'completing-read-default)
+             (not (bound-and-true-p vertico-mode))
+             (not (bound-and-true-p icomplete-mode)))
+    (let ((message-log-max nil)
+          (inhibit-message t))
       (minibuffer-completion-help))))
 
 (defun jinx--add-suggestion (list ht word group)
@@ -853,8 +859,12 @@ Optionally show prompt INFO and insert INITIAL input."
 
 (defun jinx--load-dicts ()
   "Load dictionaries and setup syntax table."
-  (setq jinx--dicts (delq nil (mapcar #'jinx--mod-dict
-                                      (split-string jinx-languages)))
+  (setq jinx--dicts (cl-loop for lang in (split-string jinx-languages)
+                             ;; Keep a weak reference to loaded dictionaries.
+                             ;; See <gh:rrthomas/enchant#402>.
+                             for dict = (with-memoization (gethash lang jinx--dicts-hash)
+                                          (jinx--mod-dict lang))
+                             if dict collect dict)
         jinx--syntax-table (make-syntax-table jinx--base-syntax-table))
   (unless jinx--dicts
     (message "Jinx: No dictionaries available for %S" jinx-languages))

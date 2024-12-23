@@ -1,4 +1,4 @@
-This is docRQNl7W.info, produced by makeinfo version 6.8 from jinx.texi.
+This is doc9GErhc.info, produced by makeinfo version 6.8 from jinx.texi.
 
 INFO-DIR-SECTION Emacs misc features
 START-INFO-DIR-ENTRY
@@ -6,7 +6,7 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
-File: docRQNl7W.info,  Node: Top,  Next: Installation,  Up: (dir)
+File: doc9GErhc.info,  Node: Top,  Next: Installation,  Up: (dir)
 
 jinx.el - Enchanted Spell Checker
 *********************************
@@ -27,9 +27,9 @@ safely co-exist with Emacs’s built-in spell-checker Ispell.
 calling the widely-used API of the Enchant library
 (https://rrthomas.github.io/enchant/).  Jinx automatically compiles
 ‘jinx-mod.c’ and loads the dynamic module at startup.  By binding
-directly to the native Enchant API, Jinx avoids the slower backend
-process communication with Aspell.  Enchant is widely used by other text
-editors and supports Nuspell (https://nuspell.github.io/), Hunspell
+directly to the native Enchant API, Jinx avoids the slower inter-process
+communication.  Enchant is widely used by other text editors and
+supports Nuspell (https://nuspell.github.io/), Hunspell
 (http://hunspell.github.io/), Aspell (http://aspell.net/) and a few
 language-specific backends.
 
@@ -53,7 +53,7 @@ and ‘PascalCase’ are accepted.
 * Contributions::
 
 
-File: docRQNl7W.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
+File: doc9GErhc.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 
 1 Installation
 **************
@@ -80,7 +80,7 @@ different packages:
 intervention.
 
 
-File: docRQNl7W.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
+File: doc9GErhc.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
 
 2 Configuration
 ***************
@@ -123,7 +123,7 @@ save misspellings as global abbreviations and support for Ispell
 ‘LocalWords’.
 
 
-File: docRQNl7W.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
+File: doc9GErhc.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
 
 3 Correcting misspellings
 *************************
@@ -163,7 +163,7 @@ the screen and enable annotations.
      (vertico-multiform-mode 1)
 
 
-File: docRQNl7W.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
+File: doc9GErhc.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
 
 4 Navigating between misspellings
 *********************************
@@ -182,7 +182,7 @@ point placement.  If ‘repeat-mode’ from Emacs 28 is enabled, the
 movement can be repeated with the keys ‘n’ and ‘p’.
 
 
-File: docRQNl7W.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
+File: doc9GErhc.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
 
 5 Enchant backends and personal dictionaries
 ********************************************
@@ -203,7 +203,7 @@ checkers.  See the Enchant manual
 (https://rrthomas.github.io/enchant/lib/enchant.html) for details.
 
 
-File: docRQNl7W.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
+File: doc9GErhc.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
 
 6 Alternatives
 **************
@@ -244,7 +244,7 @@ closest to the behavior of Jinx.
      must be instructed to do so via the command ‘flyspell-buffer’.
 
 
-File: docRQNl7W.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
+File: doc9GErhc.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
 
 7 Contributions
 ***************
@@ -257,13 +257,13 @@ copyright assignment to the FSF.
 
 Tag Table:
 Node: Top201
-Node: Installation2333
-Node: Configuration3410
-Node: Correcting misspellings5068
-Node: Navigating between misspellings7004
-Node: Enchant backends and personal dictionaries8001
-Node: Alternatives9066
-Node: Contributions11278
+Node: Installation2319
+Node: Configuration3396
+Node: Correcting misspellings5054
+Node: Navigating between misspellings6990
+Node: Enchant backends and personal dictionaries7987
+Node: Alternatives9052
+Node: Contributions11264
 
 End Tag Table
 
