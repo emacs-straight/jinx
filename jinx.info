@@ -1,4 +1,4 @@
-This is docMg0FKI.info, produced by makeinfo version 6.8 from jinx.texi.
+This is docDhXZae.info, produced by makeinfo version 6.8 from jinx.texi.
 
 INFO-DIR-SECTION Emacs misc features
 START-INFO-DIR-ENTRY
@@ -6,7 +6,7 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
-File: docMg0FKI.info,  Node: Top,  Next: Installation,  Up: (dir)
+File: docDhXZae.info,  Node: Top,  Next: Installation,  Up: (dir)
 
 jinx.el - Enchanted Spell Checker
 *********************************
@@ -52,7 +52,7 @@ composite words in ‘camelCase’ and ‘PascalCase’ are accepted.
 * Contributions::
 
 
-File: docMg0FKI.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
+File: docDhXZae.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 
 1 Installation
 **************
@@ -79,7 +79,7 @@ different packages:
 intervention.
 
 
-File: docMg0FKI.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
+File: docDhXZae.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
 
 2 Configuration
 ***************
@@ -122,7 +122,7 @@ save misspellings as global abbreviations and support for Ispell
 ‘LocalWords’.
 
 
-File: docMg0FKI.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
+File: docDhXZae.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
 
 3 Correcting misspellings
 *************************
@@ -136,8 +136,8 @@ The recommended binding is ‘M-$’, see the configuration section.
 Suggested corrections will be displayed as a completion menu.  You can
 press the displayed digit keys to quickly select a suggestion.
 Furthermore the menu offers options to save the word temporarily for the
-current session, in the personal dictionary or in the file-local
-variables.
+current session, in the personal dictionary or in the file-local or
+directory-local variables.
 
    You can enter arbitrary input at the correction prompt in order to
 make the correction or to store a modified word in the personal
@@ -162,7 +162,7 @@ the screen and enable annotations.
      (vertico-multiform-mode 1)
 
 
-File: docMg0FKI.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
+File: docDhXZae.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
 
 4 Navigating between misspellings
 *********************************
@@ -181,7 +181,7 @@ point placement.  If ‘repeat-mode’ from Emacs 28 is enabled, the
 movement can be repeated with the keys ‘n’ and ‘p’.
 
 
-File: docMg0FKI.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
+File: docDhXZae.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
 
 5 Enchant backends and personal dictionaries
 ********************************************
@@ -202,7 +202,7 @@ checkers.  See the Enchant manual
 (https://rrthomas.github.io/enchant/lib/enchant.html) for details.
 
 
-File: docMg0FKI.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
+File: docDhXZae.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
 
 6 Alternatives
 **************
@@ -243,7 +243,7 @@ closest to the behavior of Jinx.
      must be instructed to do so via the command ‘flyspell-buffer’.
 
 
-File: docMg0FKI.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
+File: docDhXZae.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
 
 7 Contributions
 ***************
@@ -259,10 +259,10 @@ Node: Top201
 Node: Installation2309
 Node: Configuration3386
 Node: Correcting misspellings5044
-Node: Navigating between misspellings6980
-Node: Enchant backends and personal dictionaries7977
-Node: Alternatives9017
-Node: Contributions11229
+Node: Navigating between misspellings6999
+Node: Enchant backends and personal dictionaries7996
+Node: Alternatives9036
+Node: Contributions11248
 
 End Tag Table
 
