@@ -1,4 +1,4 @@
-This is dockbIGJz.info, produced by makeinfo version 6.8 from jinx.texi.
+This is docj35N6a.info, produced by makeinfo version 6.8 from jinx.texi.
 
 INFO-DIR-SECTION Emacs misc features
 START-INFO-DIR-ENTRY
@@ -6,7 +6,7 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
-File: dockbIGJz.info,  Node: Top,  Next: Installation,  Up: (dir)
+File: docj35N6a.info,  Node: Top,  Next: Installation,  Up: (dir)
 
 jinx.el - Enchanted Spell Checker
 *********************************
@@ -52,7 +52,7 @@ composite words in ‘camelCase’ and ‘PascalCase’ are accepted.
 * Contributions::
 
 
-File: dockbIGJz.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
+File: docj35N6a.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 
 1 Installation
 **************
@@ -60,26 +60,25 @@ File: dockbIGJz.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up
 Jinx can be installed from GNU ELPA or MELPA directly with
 ‘package-install’.
 
-   Most importantly your Emacs must be compiled with dynamic module
-support.  Jinx requires ‘libenchant’, which is needed to compile the
-native module at install time.  If ‘pkgconf’ or ‘pkg-config’ is
-available, Jinx will use it to locate ‘libenchant’ during installation.
-Depending on your BSD or Linux distribution you have to install
-different packages:
+   Your Emacs must be compiled with dynamic module support.  Furthermore
+a C compiler must be available on your system (‘gcc’ or ‘clang’).  Jinx
+requires ‘libenchant’, which is needed to compile the native module at
+install time.  If ‘pkgconf’ or ‘pkg-config’ is available, Jinx will use
+it to locate ‘libenchant’ during installation.  Depending on your BSD or
+Linux distribution you have to install different packages:
 
    • Debian, Ubuntu: ‘libenchant-2-dev’, ‘pkgconf’
    • Arch, Gentoo: ‘enchant’, ‘pkgconf’
    • Guix: ‘emacs-jinx’ defined in ‘emacs-xyz.scm’
    • Nix: ‘jinx’ defined in ‘elpa-packages.nix’
    • Void, Fedora: ‘enchant2-devel’, ‘pkgconf’
-   • OpenSUSE: ‘emacs-jinx’ or ‘enchant’, ‘pkgconf’
    • FreeBSD, OpenBSD, Mac: ‘enchant2’, ‘pkgconf’
 
    On Windows the installation of the native module may require manual
 intervention.
 
 
-File: dockbIGJz.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
+File: docj35N6a.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
 
 2 Configuration
 ***************
@@ -122,7 +121,7 @@ save misspellings as global abbreviations and support for Ispell
 ‘LocalWords’.
 
 
-File: dockbIGJz.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
+File: docj35N6a.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
 
 3 Correcting misspellings
 *************************
@@ -162,7 +161,7 @@ the screen and enable annotations.
      (vertico-multiform-mode)
 
 
-File: dockbIGJz.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
+File: docj35N6a.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
 
 4 Navigating between misspellings
 *********************************
@@ -181,7 +180,7 @@ point placement.  If ‘repeat-mode’ from Emacs 28 is enabled, the
 movement can be repeated with the keys ‘n’ and ‘p’.
 
 
-File: dockbIGJz.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
+File: docj35N6a.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
 
 5 Enchant backends and personal dictionaries
 ********************************************
@@ -202,7 +201,7 @@ checkers.  See the Enchant manual
 (https://rrthomas.github.io/enchant/lib/enchant.html) for details.
 
 
-File: dockbIGJz.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
+File: docj35N6a.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
 
 6 Alternatives
 **************
@@ -243,7 +242,7 @@ closest to the behavior of Jinx.
      must be instructed to do so via the command ‘flyspell-buffer’.
 
 
-File: dockbIGJz.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
+File: docj35N6a.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
 
 7 Contributions
 ***************
@@ -257,12 +256,12 @@ copyright assignment to the FSF.
 Tag Table:
 Node: Top201
 Node: Installation2310
-Node: Configuration3387
-Node: Correcting misspellings5045
-Node: Navigating between misspellings7018
-Node: Enchant backends and personal dictionaries8015
-Node: Alternatives9055
-Node: Contributions11267
+Node: Configuration3392
+Node: Correcting misspellings5050
+Node: Navigating between misspellings7023
+Node: Enchant backends and personal dictionaries8020
+Node: Alternatives9060
+Node: Contributions11272
 
 End Tag Table
 
