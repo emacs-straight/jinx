@@ -1,2 +1,2 @@
 ;; Generated package description from jinx.el  -*- mode: lisp-data; no-byte-compile: t -*-
-(define-package "jinx" "2.4.0.20251119.165552" "Enchanted Spell Checker" '((emacs "29.1") (compat "30")) :commit "0135f9890f05388da155f037997eb019de6f61a3" :authors '(("Daniel Mendler" . "mail@daniel-mendler.de")) :maintainer '("Daniel Mendler" . "mail@daniel-mendler.de") :keywords '("convenience" "text") :url "https://github.com/minad/jinx")
+(define-package "jinx" "2.4.0.20251126.172039" "Enchanted Spell Checker" '((emacs "29.1") (compat "30")) :commit "536456bfdb2e28e8e261d8e7ad97a4ccdcc17988" :authors '(("Daniel Mendler" . "mail@daniel-mendler.de")) :maintainer '("Daniel Mendler" . "mail@daniel-mendler.de") :keywords '("convenience" "text") :url "https://github.com/minad/jinx")
