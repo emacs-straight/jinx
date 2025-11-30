@@ -107,7 +107,7 @@ are listed in `jinx-camel-modes'. For these modes composite words in
   │ (use-package jinx
   │   :hook (emacs-startup . global-jinx-mode)
   │   :bind (("M-$" . jinx-correct)
-  │ 	 ("C-M-$" . jinx-languages)))
+  │          ("C-M-$" . jinx-languages)))
   └────
 
   See also the [Jinx Wiki] for additional configuration tips. The wiki
@@ -156,7 +156,7 @@ are listed in `jinx-camel-modes'. For these modes composite words in
 
   ┌────
   │ (add-to-list 'vertico-multiform-categories
-  │ 	     '(jinx grid (vertico-grid-annotate . 20) (vertico-count . 4)))
+  │              '(jinx grid (vertico-grid-annotate . 20) (vertico-count . 4)))
   │ (vertico-multiform-mode)
   └────
 
