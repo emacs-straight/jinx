@@ -1,4 +1,4 @@
-This is docpC5De3.info, produced by makeinfo version 7.1.1 from
+This is docBpTmfT.info, produced by makeinfo version 7.1.1 from
 jinx.texi.
 
 INFO-DIR-SECTION Emacs misc features
@@ -7,7 +7,7 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
-File: docpC5De3.info,  Node: Top,  Next: Installation,  Up: (dir)
+File: docBpTmfT.info,  Node: Top,  Next: Installation,  Up: (dir)
 
 jinx.el - Enchanted Spell Checker
 *********************************
@@ -54,7 +54,7 @@ composite words in ‘camelCase’ and ‘PascalCase’ are accepted.
 * Contributions::
 
 
-File: docpC5De3.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
+File: docBpTmfT.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 
 1 Installation
 **************
@@ -82,7 +82,7 @@ Linux distribution you have to install different packages:
 intervention.
 
 
-File: docpC5De3.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
+File: docBpTmfT.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
 
 2 Configuration
 ***************
@@ -125,7 +125,7 @@ save misspellings as global abbreviations and support for Ispell
 ‘LocalWords’.
 
 
-File: docpC5De3.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
+File: docBpTmfT.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
 
 3 Correcting misspellings
 *************************
@@ -168,7 +168,7 @@ the screen and enable annotations.
      (vertico-multiform-mode)
 
 
-File: docpC5De3.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
+File: docBpTmfT.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
 
 4 Navigating between misspellings
 *********************************
@@ -187,7 +187,7 @@ point placement.  If ‘repeat-mode’ from Emacs 28 is enabled, the
 movement can be repeated with the keys ‘n’ and ‘p’.
 
 
-File: docpC5De3.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
+File: docBpTmfT.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
 
 5 Enchant backends and personal dictionaries
 ********************************************
@@ -208,7 +208,7 @@ checkers.  See the Enchant manual
 (https://rrthomas.github.io/enchant/lib/enchant.html) for details.
 
 
-File: docpC5De3.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
+File: docBpTmfT.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
 
 6 Alternatives
 **************
@@ -249,7 +249,7 @@ closest to the behavior of Jinx.
      must be instructed to do so via the command ‘flyspell-buffer’.
 
 
-File: docpC5De3.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
+File: docBpTmfT.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
 
 7 Contributions
 ***************
