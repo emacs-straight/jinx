@@ -1,5 +1,4 @@
-This is docNIKqHQ.info, produced by makeinfo version 7.1.1 from
-jinx.texi.
+This is jinx.info, produced by makeinfo version 7.1.1 from jinx.texi.
 
 INFO-DIR-SECTION Emacs misc features
 START-INFO-DIR-ENTRY
@@ -7,7 +6,7 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
 
-File: docNIKqHQ.info,  Node: Top,  Next: Installation,  Up: (dir)
+File: jinx.info,  Node: Top,  Next: Installation,  Up: (dir)
 
 jinx.el - Enchanted Spell Checker
 *********************************
@@ -54,7 +53,7 @@ composite words in ‘camelCase’ and ‘PascalCase’ are accepted.
 * Contributions::
 
 
-File: docNIKqHQ.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
+File: jinx.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 
 1 Installation
 **************
@@ -82,7 +81,7 @@ Linux distribution you have to install different packages:
 intervention.
 
 
-File: docNIKqHQ.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
+File: jinx.info,  Node: Configuration,  Next: Correcting misspellings,  Prev: Installation,  Up: Top
 
 2 Configuration
 ***************
@@ -125,7 +124,7 @@ save misspellings as global abbreviations and support for Ispell
 ‘LocalWords’.
 
 
-File: docNIKqHQ.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
+File: jinx.info,  Node: Correcting misspellings,  Next: Navigating between misspellings,  Prev: Configuration,  Up: Top
 
 3 Correcting misspellings
 *************************
@@ -168,7 +167,7 @@ the screen and enable annotations.
      (vertico-multiform-mode)
 
 
-File: docNIKqHQ.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
+File: jinx.info,  Node: Navigating between misspellings,  Next: Enchant backends and personal dictionaries,  Prev: Correcting misspellings,  Up: Top
 
 4 Navigating between misspellings
 *********************************
@@ -187,7 +186,7 @@ point placement.  If ‘repeat-mode’ from Emacs 28 is enabled, the
 movement can be repeated with the keys ‘n’ and ‘p’.
 
 
-File: docNIKqHQ.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
+File: jinx.info,  Node: Enchant backends and personal dictionaries,  Next: Alternatives,  Prev: Navigating between misspellings,  Up: Top
 
 5 Enchant backends and personal dictionaries
 ********************************************
@@ -208,7 +207,7 @@ checkers.  See the Enchant manual
 (https://rrthomas.github.io/enchant/lib/enchant.html) for details.
 
 
-File: docNIKqHQ.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
+File: jinx.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
 
 6 Alternatives
 **************
@@ -249,7 +248,7 @@ closest to the behavior of Jinx.
      must be instructed to do so via the command ‘flyspell-buffer’.
 
 
-File: docNIKqHQ.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
+File: jinx.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
 
 7 Contributions
 ***************
@@ -261,14 +260,14 @@ copyright assignment to the FSF.
 
 
 Tag Table:
-Node: Top203
-Node: Installation2357
-Node: Configuration3596
-Node: Correcting misspellings5304
-Node: Navigating between misspellings7382
-Node: Enchant backends and personal dictionaries8379
-Node: Alternatives9419
-Node: Contributions11625
+Node: Top198
+Node: Installation2347
+Node: Configuration3581
+Node: Correcting misspellings5284
+Node: Navigating between misspellings7357
+Node: Enchant backends and personal dictionaries8349
+Node: Alternatives9384
+Node: Contributions11585
 
 End Tag Table
 
