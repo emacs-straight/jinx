@@ -1,4 +1,4 @@
-This is jinx.info, produced by makeinfo version 7.1.1 from jinx.texi.
+This is jinx.info, produced by makeinfo version 7.2 from jinx.texi.
 
 INFO-DIR-SECTION Emacs misc features
 START-INFO-DIR-ENTRY
@@ -257,21 +257,21 @@ Since this package is part of GNU ELPA
 (https://elpa.gnu.org/packages/jinx.html) contributions require a
 copyright assignment to the FSF.
 
-
 
 Tag Table:
-Node: Top198
-Node: Installation2347
-Node: Configuration3581
-Node: Correcting misspellings5284
-Node: Navigating between misspellings7357
-Node: Enchant backends and personal dictionaries8349
-Node: Alternatives9384
-Node: Contributions11585
+Node: Top196
+Node: Installation2345
+Node: Configuration3579
+Node: Correcting misspellings5282
+Node: Navigating between misspellings7355
+Node: Enchant backends and personal dictionaries8347
+Node: Alternatives9382
+Node: Contributions11583
 
 End Tag Table
 
 
 Local Variables:
 coding: utf-8
+Info-documentlanguage: en
 End:
