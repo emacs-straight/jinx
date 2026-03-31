@@ -50,7 +50,6 @@ composite words in ‘camelCase’ and ‘PascalCase’ are accepted.
 * Navigating between misspellings::
 * Enchant backends and personal dictionaries::
 * Alternatives::
-* Contributions::
 
 
 File: jinx.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
@@ -58,8 +57,7 @@ File: jinx.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 1 Installation
 **************
 
-Jinx can be installed from GNU ELPA or MELPA directly with
-‘package-install’.
+Jinx can be installed from MELPA directly with ‘package-install’.
 
    Your Emacs must be compiled with dynamic module support.  Furthermore
 a C compiler must be available on your system (‘gcc’ or ‘clang’).  Jinx
@@ -207,7 +205,7 @@ checkers.  See the Enchant manual
 (https://rrthomas.github.io/enchant/lib/enchant.html) for details.
 
 
-File: jinx.info,  Node: Alternatives,  Next: Contributions,  Prev: Enchant backends and personal dictionaries,  Up: Top
+File: jinx.info,  Node: Alternatives,  Prev: Enchant backends and personal dictionaries,  Up: Top
 
 6 Alternatives
 **************
@@ -248,25 +246,14 @@ closest to the behavior of Jinx.
      must be instructed to do so via the command ‘flyspell-buffer’.
 
 
-File: jinx.info,  Node: Contributions,  Prev: Alternatives,  Up: Top
-
-7 Contributions
-***************
-
-Since this package is part of GNU ELPA
-(https://elpa.gnu.org/packages/jinx.html) contributions require a
-copyright assignment to the FSF.
-
-
 Tag Table:
 Node: Top196
-Node: Installation2345
-Node: Configuration3579
-Node: Correcting misspellings5282
-Node: Navigating between misspellings7355
-Node: Enchant backends and personal dictionaries8347
-Node: Alternatives9382
-Node: Contributions11583
+Node: Installation2327
+Node: Configuration3549
+Node: Correcting misspellings5252
+Node: Navigating between misspellings7325
+Node: Enchant backends and personal dictionaries8317
+Node: Alternatives9352
 
 End Tag Table
 
