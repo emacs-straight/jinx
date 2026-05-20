@@ -3,8 +3,8 @@
                          ━━━━━━━━━━━━━━━━━━━━━
 
 
-1 Development
-═════════════
+1 Version 2.8 (2026-05-19)
+══════════════════════════
 
   • Add support for minor modes to `jinx-include-*' and `jinx-exclude-*'
     variables.
