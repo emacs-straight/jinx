@@ -59,7 +59,7 @@ File: jinx.info,  Node: Installation,  Next: Configuration,  Prev: Top,  Up: Top
 
 Jinx can be installed from ELPA
 (https://elpa.gnu.org/packages/jinx.html) or MELPA
-(https://melpa.org/#/jinx) directly with ‘package-install’.
+(https://releases.melpa.org/#/jinx) directly with ‘package-install’.
 
    Your Emacs must be compiled with dynamic module support.  Furthermore
 a C compiler must be available on your system (‘gcc’ or ‘clang’).  Jinx
@@ -252,11 +252,11 @@ closest to the behavior of Jinx.
 Tag Table:
 Node: Top198
 Node: Installation2329
-Node: Configuration3628
-Node: Correcting misspellings5331
-Node: Navigating between misspellings7404
-Node: Enchant backends and personal dictionaries8396
-Node: Alternatives9431
+Node: Configuration3637
+Node: Correcting misspellings5340
+Node: Navigating between misspellings7413
+Node: Enchant backends and personal dictionaries8405
+Node: Alternatives9440
 
 End Tag Table
 
