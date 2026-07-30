@@ -80,11 +80,8 @@ static void jinx_free_dict(void* dict) {
 static emacs_value jinx_dict(emacs_env* env, ptrdiff_t jinx_unused(nargs),
                              emacs_value args[], void* jinx_unused(data)) {
     jinx_autofree char* str = jinx_cstr(env, args[0]);
-    EnchantDict* dict =
-        str ? enchant_broker_request_dict(jinx_broker(), str) : 0;
-    return dict
-        ? env->make_user_ptr(env, jinx_free_dict, dict)
-        : Qnil;
+    EnchantDict* dict = str ? enchant_broker_request_dict(jinx_broker(), str) : 0;
+    return dict ? env->make_user_ptr(env, jinx_free_dict, dict) : Qnil;
 }
 
 static void jinx_describe_cb(const char* const lang_tag,
@@ -135,7 +132,7 @@ static emacs_value jinx_check(emacs_env* env, ptrdiff_t jinx_unused(nargs),
     jinx_autofree char* str = jinx_cstr(env, args[1]);
     // Do not error in the checking function (Non-Unicode strings)
     env->non_local_exit_clear(env);
-    return !dict || !str || enchant_dict_check(dict, str, -1) ? Qnil : Qt;
+    return dict && str && !enchant_dict_check(dict, str, -1) ? Qt : Qnil;
 }
 
 static emacs_value jinx_add(emacs_env* env, ptrdiff_t jinx_unused(nargs),
@@ -145,6 +142,22 @@ static emacs_value jinx_add(emacs_env* env, ptrdiff_t jinx_unused(nargs),
     if (dict && str)
         enchant_dict_add(dict, str, -1);
     return Qnil;
+}
+
+static emacs_value jinx_remove(emacs_env* env, ptrdiff_t jinx_unused(nargs),
+                            emacs_value args[], void* jinx_unused(data)) {
+    EnchantDict* dict = env->get_user_ptr(env, args[0]);
+    jinx_autofree char* str = jinx_cstr(env, args[1]);
+    if (dict && str)
+        enchant_dict_remove(dict, str, -1);
+    return Qnil;
+}
+
+static emacs_value jinx_has(emacs_env* env, ptrdiff_t jinx_unused(nargs),
+                            emacs_value args[], void* jinx_unused(data)) {
+    EnchantDict* dict = env->get_user_ptr(env, args[0]);
+    jinx_autofree char* str = jinx_cstr(env, args[1]);
+    return dict && str && enchant_dict_is_added(dict, str, -1) ? Qt : Qnil;
 }
 
 static emacs_value jinx_suggest(emacs_env* env, ptrdiff_t jinx_unused(nargs),
@@ -175,6 +188,8 @@ int emacs_module_init(struct emacs_runtime *runtime) {
     jinx_defun(env, "jinx--mod-suggest", 2, 2, jinx_suggest);
     jinx_defun(env, "jinx--mod-check", 2, 2, jinx_check);
     jinx_defun(env, "jinx--mod-add", 2, 2, jinx_add);
+    jinx_defun(env, "jinx--mod-remove", 2, 2, jinx_remove);
+    jinx_defun(env, "jinx--mod-has", 2, 2, jinx_has);
     jinx_defun(env, "jinx--mod-dict", 1, 1, jinx_dict);
     jinx_defun(env, "jinx--mod-langs", 0, 0, jinx_langs);
     jinx_defun(env, "jinx--mod-describe", 1, 1, jinx_describe);
