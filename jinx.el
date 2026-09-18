@@ -27,25 +27,24 @@
 
 ;;; Commentary:
 
-;; Jinx is a fast just-in-time spell-checker for Emacs.  Jinx
-;; highlights misspelled words in the text of the visible portion of
-;; the buffer.  For efficiency, Jinx highlights misspellings lazily,
-;; recognizes window boundaries and text folding, if any.  For
-;; example, when unfolding or scrolling, only the newly visible part
-;; of the text is checked if it has not been checked before.  Each
-;; misspelling can be corrected from a list of dictionary words
-;; presented as a completion menu.
+;; Jinx is a fast just-in-time spell-checker for Emacs.  Jinx highlights
+;; misspelled words in the text of the visible portion of the buffer.  For
+;; efficiency, Jinx highlights misspelled words lazily, recognizes window
+;; boundaries and text folding, if any.  For example, when unfolding or
+;; scrolling, only the newly visible part of the text is checked if it has
+;; not been checked before.  Each misspelling can be corrected from a list
+;; of dictionary words presented as a completion menu.
 
-;; Installing Jinx is straight-forward and configuring should not need
-;; much intervention.  Jinx can be used completely on its own, but can
-;; also safely co-exist with Emacs's built-in spell-checker Ispell.
+;; Installing Jinx is straight-forward and configuring should not need much
+;; intervention.  Jinx can be used completely on its own, but can also
+;; safely co-exist with Emacs's built-in spell-checker Ispell.
 
 ;; Jinx's high performance and low resource usage comes from directly
 ;; calling the API of the Enchant library, see
 ;; https://rrthomas.github.io/enchant/.  Jinx automatically compiles
-;; jinx-mod.c and loads the dynamic module at startup.  By binding
-;; directly to the native Enchant API, Jinx avoids slower
-;; inter-process communication.
+;; jinx-mod.c and loads the dynamic module at startup.  By binding directly
+;; to the native Enchant API, Jinx avoids slower inter-process
+;; communication.
 
 ;; See the manual for further information.
 
@@ -110,10 +109,10 @@ checking."
   :type '(alist :key-type symbol :value-type (choice symbol (repeat face))))
 
 (defcustom jinx-camel-modes
-  '(java-mode java-ts-mode js-mode js-ts-mode ruby-mode ruby-ts-mode rust-mode
-    rust-ts-mode haskell-mode kotlin-mode swift-mode csharp-mode csharp-ts-mode
-    objc-mode typescript-ts-mode typescript-mode tsx-ts-mode python-mode
-    python-ts-mode dart-mode go-mode go-ts-mode scala-mode groovy-mode)
+  '( java-mode java-ts-mode js-mode js-ts-mode ruby-mode ruby-ts-mode rust-mode
+     rust-ts-mode haskell-mode kotlin-mode swift-mode csharp-mode csharp-ts-mode
+     objc-mode typescript-ts-mode typescript-mode tsx-ts-mode python-mode
+     python-ts-mode dart-mode go-mode go-ts-mode scala-mode groovy-mode)
   "Modes where camelCase or PascalCase words should be accepted.
 Set to t to enable camelCase everywhere."
   :type '(choice (const t) (repeat symbol)))
@@ -282,6 +281,7 @@ of a buffer.  Write a custom predicate instead, see `jinx--predicates'."
      :keys "\\[universal-argument] \\[jinx-correct]"]
     ["Correct word" jinx-correct-word
      :keys "\\[universal-argument] \\[universal-argument] \\[jinx-correct]"]
+    ["Occur" jinx-occur]
     ["Change languages" jinx-languages]
     ["Remove word" jinx-remove-word]
     "----"
@@ -296,8 +296,8 @@ of a buffer.  Write a custom predicate instead, see `jinx--predicates'."
   "List of compile flags passed to the C compiler.")
 
 (defvar jinx--reschedule-hooks
-  '(window-selection-change-functions window-scroll-functions
-    window-state-change-hook post-command-hook)
+  '( window-selection-change-functions window-scroll-functions
+     window-state-change-hook post-command-hook)
   "Hooks which reschedule the spell checking timer, see `jinx--reschedule'.")
 
 (defvar jinx--predicates
@@ -543,19 +543,17 @@ If VISIBLE is non-nil, only include visible overlays."
       (push (pop overlays) before))
     (nconc overlays (nreverse before))))
 
-(cl-defun jinx--force-overlays (start end &key visible check)
+(defun jinx--force-overlays (start end &optional visible)
   "Return misspelled word overlays between START and END, enforce checking.
-If VISIBLE is non-nil, only include visible overlays.
-If CHECK is non-nil, always check first."
-  (or (and (not check) (jinx--get-overlays start end visible))
-      (progn
-        (with-delayed-message (1 "Fontifying...")
-          (jinx--in-base-buffer #'jit-lock-fontify-now start end))
-        (with-delayed-message (1 "Checking...")
-          (jinx--check-region start end))
-        (jinx--get-overlays start end visible))
+If VISIBLE is non-nil, only include visible overlays."
+  (with-delayed-message (1 "Fontifying...")
+    (jinx--in-base-buffer #'jit-lock-fontify-now start end))
+  (with-delayed-message (1 "Checking...")
+    (jinx--check-region start end))
+  (or (jinx--get-overlays start end visible)
       (user-error "No misspelled word in %s"
-                  (if visible "visible text" (format "buffer `%s'" (buffer-name))))))
+                  (if visible "visible text"
+                    (format "buffer `%s'" (buffer-name))))))
 
 (defun jinx--cleanup ()
   "Cleanup all overlays and trigger fontification."
@@ -845,7 +843,7 @@ Optionally show prompt INFO and insert INITIAL input."
       (when-let* ((suggestions (jinx--session-suggestions word)))
         (push ["── Session ──" :active nil] menu)
         (cl-loop for w in suggestions repeat jinx-menu-suggestions do
-          (push `[,w (jinx--correct-replace ,ov ,w)] menu)))
+                 (push `[,w (jinx--correct-replace ,ov ,w)] menu)))
       (let ((submenu (list "Accept and save")))
         (cl-loop for (key . fun) in jinx--save-keys do
                  (cl-loop for (k w a) in (funcall fun 'format key word) do
@@ -885,15 +883,15 @@ Optionally show prompt INFO and insert INITIAL input."
   (let ((langs (delete-dups
                 (cl-loop for (l . p) in (jinx--mod-langs) collect
                          (propertize l 'jinx--group (format "Provider %s" p))))))
-      (string-join
-       (or (completing-read-multiple
-            (format "Change languages (%s): "
-                    (string-join (split-string jinx-languages) ", "))
-            (completion-table-with-metadata
-             langs `((group-function . ,#'jinx--group)))
-            nil t)
-           (user-error "No languages selected"))
-       " ")))
+    (string-join
+     (or (completing-read-multiple
+          (format "Change languages (%s): "
+                  (string-join (split-string jinx-languages) ", "))
+          (completion-table-with-metadata
+           langs `((group-function . ,#'jinx--group)))
+          nil t)
+         (user-error "No languages selected"))
+     " ")))
 
 (defun jinx--save-local-word (action var word)
   "Add/remove WORD to/from local word list VAR.
@@ -1003,6 +1001,57 @@ buffers.  See also the variable `jinx-languages'."
   (jinx--cleanup))
 
 ;;;###autoload
+(defun jinx-occur ()
+  "Display all lines containing misspelled words in a separate `occur-mode' buffer."
+  (interactive)
+  (let ((buf (get-buffer-create "*jinx-occur*"))
+        (where (buffer-name))
+        overlays lines)
+    (save-excursion
+      (jinx--correct-guard
+       (goto-char (point-min))
+       (setq overlays (jinx--force-overlays (point-min) (point-max)))
+       (dolist (ov overlays)
+         (goto-char (overlay-start ov))
+         (let ((bol (pos-bol))
+               (line (line-number-at-pos))
+               (ov (cons (copy-overlay ov) (copy-marker (overlay-start ov)))))
+           (if (equal (caar lines) line)
+               (push ov (nth 3 (car lines)))
+             (push `( ,line ,(buffer-substring bol (pos-eol)) ,bol (,ov)) lines))))))
+    (with-current-buffer buf
+      (with-silent-modifications
+        (erase-buffer)
+        (insert (format (propertize "%d misspelled words in %d lines in %s" 'face 'underline)
+                        (length overlays) (length lines) where)
+                ?\n)
+        (pcase-dolist (`(,line ,str ,bol ,ovs) (nreverse lines))
+          (let ((start (point)))
+            (insert
+             (format (propertize "%7d:"
+                                 'occur-prefix t
+                                 'front-sticky t
+                                 'rear-nonsticky t
+                                 'read-only t
+                                 'font-lock-face list-matching-lines-prefix-face)
+                     line)
+             str ?\n)
+            (put-text-property start (1- (point)) 'mouse-face 'highlight)
+            (add-text-properties start (point)
+                                 `( follow-link t
+                                    occur-target ,(cdar (last ovs))
+                                    occur-match t))
+            (dolist (ov ovs)
+              (let ((beg (+ start 8 (- (overlay-start (car ov)) bol)))
+                    (end (+ start 8 (- (overlay-end (car ov)) bol))))
+                (add-text-properties beg end `(occur-match t occur-target ,(cdr ov)))
+                (move-overlay (car ov) beg end buf)))))
+        (goto-char (point-min))
+        (occur-mode)
+        (setq next-error-last-buffer buf)
+        (pop-to-buffer buf)))))
+
+;;;###autoload
 (defun jinx-correct-all (&optional only-check)
   "Correct all misspelled words in the buffer.
 With prefix argument ONLY-CHECK, only check the buffer and highlight all
@@ -1010,8 +1059,7 @@ misspelled words, but do not open the correction UI."
   (interactive "*P")
   (jinx--correct-guard
    (let* ((overlays (jinx--force-overlays (or (use-region-beginning) (point-min))
-                                          (or (use-region-end) (point-max))
-                                          :check t))
+                                          (or (use-region-end) (point-max))))
           (count (length overlays))
           (idx 0))
      (if only-check
@@ -1031,7 +1079,7 @@ misspelled words, but do not open the correction UI."
   (interactive "*")
   (save-excursion
     (jinx--correct-guard
-     (let* ((overlays (jinx--force-overlays (window-start) (window-end) :visible t))
+     (let* ((overlays (jinx--force-overlays (window-start) (window-end) t))
             (count (length overlays))
             (idx 0))
        ;; Not using `while-let' is intentional here.
@@ -1055,7 +1103,7 @@ Optionally insert INITIAL input in the minibuffer."
      (while-let ((skip (let ((ov (make-overlay start end)))
                          (unwind-protect
                              (jinx--correct-overlay ov :initial initial)
-                         (delete-overlay ov)))))
+                           (delete-overlay ov)))))
        (forward-to-word skip)
        (when-let* ((bounds (jinx--bounds-of-word)))
          (setf (cons start end) bounds
@@ -1133,7 +1181,8 @@ This command dispatches to the following commands:
   (unless (= n 0)
     (if (minibufferp)
         (throw 'jinx--goto n)
-      (let ((ov (jinx--force-overlays (point-min) (point-max))))
+      (let ((ov (or (jinx--get-overlays (point-min) (point-max))
+                    (jinx--force-overlays (point-min) (point-max)))))
         (unless (or (> n 0) (<= (overlay-start (car ov)) (point) (overlay-end (car ov))))
           (incf n))
         (goto-char (overlay-end (nth (mod n (length ov)) ov)))
@@ -1178,10 +1227,10 @@ This command dispatches to the following commands:
       (add-hook hook #'jinx--reschedule nil t))
     (jit-lock-register #'jinx--mark-pending))
    (t
-    (mapc #'kill-local-variable '(jinx--exclude-regexp jinx--include-faces
-                                  jinx--exclude-faces jinx--camel
-                                  jinx--dicts jinx--syntax-table
-                                  jinx--session-words))
+    (mapc #'kill-local-variable '( jinx--exclude-regexp jinx--include-faces
+                                   jinx--exclude-faces jinx--camel
+                                   jinx--dicts jinx--syntax-table
+                                   jinx--session-words))
     (dolist (hook jinx--reschedule-hooks)
       (remove-hook hook #'jinx--reschedule t))
     (jit-lock-unregister #'jinx--mark-pending)

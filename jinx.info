@@ -111,6 +111,8 @@ to ‘ispell-word’.  Since Jinx is independent of the Ispell package,
    • ‘C-u M-$’ or ‘M-x jinx-correct-all’ spell-checks the entire buffer.
    • ‘C-u C-u M-$’ or ‘M-x jinx-correct-word’ forces correction of the
      word at point, even if it is not misspelled.
+   • ‘M-x jinx-occur’ displays all misspelled words in a separate
+     buffer.
 
    A sample configuration with the popular ‘use-package’ macro is shown
 here:
@@ -262,11 +264,11 @@ Tag Table:
 Node: Top198
 Node: Installation2407
 Node: Configuration3715
-Node: Correcting misspellings5418
-Node: Completion configuration7004
-Node: Navigating between misspellings7744
-Node: Enchant backends and personal dictionaries8737
-Node: Alternatives9772
+Node: Correcting misspellings5503
+Node: Completion configuration7089
+Node: Navigating between misspellings7829
+Node: Enchant backends and personal dictionaries8822
+Node: Alternatives9857
 
 End Tag Table
 
